@@ -6,9 +6,10 @@ import { checkAuth, fail, readJson, isDate } from "../lib/http.js";
 function cleanItems(items) {
   if (!Array.isArray(items)) return [];
   return items.slice(0, 20).map((x) => {
-    const type = ["recipe", "url", "text"].includes(x?.type) ? x.type : "text";
+    const type = ["recipe", "beetto", "url", "text"].includes(x?.type) ? x.type : "text";
     const out = { type, name: String(x?.name || "").slice(0, 100) };
     if (type === "recipe") out.id = String(x.id || "").replace(/[^0-9a-f]/gi, "").slice(0, 32);
+    if (type === "beetto") out.id = String(x.id || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 60);
     if (type === "url") out.url = String(x.url || "").slice(0, 500);
     if (type === "url" && x.ing) out.ing = String(x.ing).slice(0, 3000);
     return out;

@@ -27,7 +27,10 @@ export default async function handler(req, res) {
       Promise.all(list.map(async (e) => ({ ...(await getRecipeDetail(e.id)), count: e.count }))),
       // ページの読み取りはAIを使わない（料金はかからない）
       Promise.all(urls.map(async (e) => {
-        if (e.ing) return { name: e.name, base: "", ingredients: e.ing, count: e.count };
+        if (e.ing) {
+          const m = e.ing.match(/^[（(]([^）)\n]+)[）)]\s*\n/); // 先頭行の「（2人分）」を基準人数として使う
+          return { name: e.name, base: m ? m[1] : "", ingredients: m ? e.ing.slice(m[0].length) : e.ing, count: e.count };
+        }
         const got = await readRecipePage(e.url);
         return got ? { name: e.name, base: got.base, ingredients: got.text, count: e.count } : { name: e.name, failed: true };
       })),

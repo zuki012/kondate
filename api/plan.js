@@ -10,6 +10,7 @@ function cleanItems(items) {
     const out = { type, name: String(x?.name || "").slice(0, 100) };
     if (type === "recipe") out.id = String(x.id || "").replace(/[^0-9a-f]/gi, "").slice(0, 32);
     if (type === "url") out.url = String(x.url || "").slice(0, 500);
+    if (type === "url" && x.ing) out.ing = String(x.ing).slice(0, 3000);
     return out;
   }).filter((x) => x.name);
 }

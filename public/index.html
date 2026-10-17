@@ -368,7 +368,7 @@ function updateShopBar(){
   const items = rangeItems();
   const span = selB ? `${label(selA.d, selA.s)} → ${label(selB.d, selB.s)}` : `${label(selA.d, selA.s)}（次に最後のマスをタップ）`;
   t.innerHTML = `<span><b>${esc(span)}</b><br>${items.length}品</span>`;
-  btn.disabled = !items.some(x => x.type === "recipe");
+  btn.disabled = !items.some(x => x.type === "recipe" || x.type === "url");
 }
 
 /* ---------- 下から出る画面 ---------- */
@@ -440,8 +440,9 @@ function renderRecipeSheet(){
   } else if (tab === "url"){
     pane = `<input class="field" id="urlIn" type="url" inputmode="url" placeholder="https://… レシピのページのURL">
       <input class="field" id="urlName" type="text" placeholder="料理名（例：鶏むねのねぎ塩炒め）">
+      <textarea class="field" id="urlIng" rows="4" placeholder="材料（空欄でOK。XやInstagramなど読み取れないページのときだけ貼り付け）"></textarea>
       <button class="btn" id="addUrl">この料理を追加</button>
-      <p class="note">今は料理名を手で入れてください。URLから料理名と材料を読み取る機能は、このあと追加する予定です。</p>`;
+      <p class="note">買い出しリストを作るときに、URLのページから材料を読み取ります。X・Instagram・YouTubeは読み取れないので、材料を貼り付けてください。</p>`;
   } else {
     pane = `<input class="field" id="memo" type="text" placeholder="例：外食、納豆ごはん、作り置きの残り">
       <button class="btn" id="addMemo">メモを追加</button>
@@ -470,9 +471,11 @@ $("sheetBody").addEventListener("click", e => {
     saveCell(openKey, items); renderCurrent(); toast(`「${add.dataset.name}」を追加しました`); return;
   }
   if (t.id === "addUrl"){
-    const url = $("urlIn").value.trim(), name = $("urlName").value.trim();
+    const url = $("urlIn").value.trim(), name = $("urlName").value.trim(), ing = $("urlIng").value.trim();
     if (!/^https?:\/\//.test(url)){ toast("URLは https:// から入れてください"); return; }
-    items.push({type:"url", url, name: name || url.replace(/^https?:\/\//, "").slice(0, 30)});
+    const it = {type:"url", url, name: name || url.replace(/^https?:\/\//, "").slice(0, 30)};
+    if (ing) it.ing = ing.slice(0, 3000);
+    items.push(it);
     saveCell(openKey, items); renderRecipeSheet(); toast("追加しました"); return;
   }
   if (t.id === "addMemo"){
@@ -491,22 +494,31 @@ $("makeList").onclick = makeList;
 async function makeList(){
   const items = rangeItems();
   const recipeItems = items.filter(x => x.type === "recipe" && x.id);
-  const others = items.filter(x => x.type !== "recipe");
+  const others = items.filter(x => x.type === "text");
   const counts = new Map();
   for (const x of recipeItems) counts.set(x.id, (counts.get(x.id) || 0) + 1);
   const entries = [...counts].map(([id, count]) => ({id, count}));
+  const urlCounts = new Map();
+  for (const x of items.filter(x => x.type === "url" && x.url)){
+    const k = x.url + "\n" + (x.ing || "");
+    const cur = urlCounts.get(k) || {name: x.name, url: x.url, ing: x.ing || "", count: 0};
+    cur.count++; urlCounts.set(k, cur);
+  }
+  const extras = [...urlCounts.values()];
   const people = Number($("ppl").value);
   const span = selB ? `${label(selA.d, selA.s)} → ${label(selB.d, selB.s)}` : label(selA.d, selA.s);
   checked = new Set(); lastList = null;
   showSheet("買い出しリスト");
-  lastHead = `<p class="note">${esc(span)}／${people}人分／レシピ${entries.length}品</p>`;
-  lastOther = others.length ? `<p class="note">次のものはNotionのレシピではないため、リストに入っていません：${others.map(o => esc(o.name)).join("、")}</p>` : "";
+  lastHead = `<p class="note">${esc(span)}／${people}人分／レシピ${entries.length + extras.length}品</p>`;
+  lastOther = others.length ? `<p class="note">メモはリストに入っていません：${others.map(o => esc(o.name)).join("、")}</p>` : "";
   lastRaw = "";
-  $("sheetBody").innerHTML = `${lastHead}<div class="status"><span class="dot"></span><span>Notionのレシピを読んで、材料を合算しています…（20秒ほど）</span></div>${lastOther}`;
+  $("sheetBody").innerHTML = `${lastHead}<div class="status"><span class="dot"></span><span>レシピを読んで、材料を合算しています…（20秒ほど）</span></div>${lastOther}`;
   try {
-    const res = await api("/api/shopping", {method:"POST", body: JSON.stringify({entries, people})});
+    const res = await api("/api/shopping", {method:"POST", body: JSON.stringify({entries, extras, people})});
     lastList = res.list;
-    lastRaw = `<details><summary>レシピごとの材料（Notionの元の表記）</summary>${res.recipes.map(r => `<h4>${esc(r.name)}${r.count>1?`（${r.count}回分）`:""}</h4><pre>${esc(r.base ? "基準: " + r.base + "\n" : "")}${esc(r.ingredients || "材料の記載なし")}</pre>`).join("")}</details>`;
+    const failed = (res.failed || []);
+    if (failed.length) lastOther += `<p class="err">次のページは材料を読み取れなかったため、リストに入っていません：${failed.map(esc).join("、")}。献立のマスで一度外し、「URLを貼る」で材料を貼り付けて登録し直すと計算に入ります。</p>`;
+    lastRaw = `<details><summary>レシピごとの材料（元の表記）</summary>${res.recipes.map(r => `<h4>${esc(r.name)}${r.count>1?`（${r.count}回分）`:""}</h4><pre>${esc(r.base ? "基準: " + r.base + "\n" : "")}${esc(r.ingredients || "材料の記載なし")}</pre>`).join("")}</details>`;
     renderList();
   } catch(e){
     if (e instanceof AuthError) return showLogin(e.message);

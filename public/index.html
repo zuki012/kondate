@@ -47,10 +47,14 @@ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{ou
 h1{font-family:var(--f-display);font-size:22px;font-weight:700;margin:0;letter-spacing:.04em}
 .sync{font-size:11px;color:var(--muted);white-space:nowrap}
 .tools{display:flex;align-items:center;gap:8px}
-.themebtn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer}
+.gear{border:0;background:transparent;color:var(--ink);width:36px;height:36px;border-radius:50%;display:grid;place-items:center;cursor:pointer;margin:-6px -8px -6px 0}
+.gear:hover{background:var(--mode-soft)}
+/* 料金がかかるボタンの印（黄色い丸に¥） */
+.yen{display:inline-grid;place-items:center;width:1.35em;height:1.35em;border-radius:50%;background:#F2C230;color:#3A2A00;font-size:.8em;font-weight:700;margin-right:.45em;vertical-align:.08em;box-shadow:inset 0 -1px 0 rgba(0,0,0,.18)}
 .seg{display:grid;grid-template-columns:1fr 1fr;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:3px;gap:3px}
 .seg button{border:0;background:transparent;border-radius:9px;padding:9px 6px;font-weight:700;font-size:14px;cursor:pointer;color:var(--muted)}
 .seg button[aria-pressed="true"]{background:var(--mode);color:var(--mode-ink)}
+.seg.three{grid-template-columns:repeat(3,1fr)}
 .hint{font-size:12px;color:var(--muted);margin:0}
 
 .grid{display:flex;flex-direction:column}
@@ -167,7 +171,7 @@ body .toast.top{top:calc(16px + env(safe-area-inset-top,0px));bottom:auto}
   <header class="bar" id="bar">
     <div class="titleline">
       <h1>献立帳</h1>
-      <span class="tools"><span class="sync" id="sync">読み込み中…</span><button class="themebtn" id="themeBtn" aria-label="画面の明るさを切り替え">自動</button></span>
+      <span class="tools"><span class="sync" id="sync">読み込み中…</span><button class="gear" id="gearBtn" aria-label="設定"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></span>
     </div>
     <div class="seg" role="group" aria-label="モード">
       <button id="m-recipe" aria-pressed="true">レシピを決める</button>
@@ -186,7 +190,7 @@ body .toast.top{top:calc(16px + env(safe-area-inset-top,0px));bottom:auto}
         <select id="ppl"><option>1</option><option selected>2</option><option>3</option><option>4</option></select>
       </label>
     </div>
-    <button class="btn" id="makeList" disabled>買い出しリストを作る</button>
+    <button class="btn" id="makeList" disabled><span class="yen" aria-hidden="true">¥</span>買い出しリストを作る</button>
   </div>
 </div>
 
@@ -376,8 +380,8 @@ function updateShopBar(){
 
 /* ---------- 下から出る画面 ---------- */
 let openKey = null, tab = "search", genre = "すべて", query = "", searchTimer = null, searchSeq = 0, lastResults = [];
-function showSheet(title){ $("sheetTitle").textContent = title; $("scrim").hidden = false; $("sheet").hidden = false; }
-function closeSheet(){ $("scrim").hidden = true; $("sheet").hidden = true; openKey = null; }
+function showSheet(title){ settingsOpen = false; $("sheetTitle").textContent = title; $("scrim").hidden = false; $("sheet").hidden = false; }
+function closeSheet(){ $("scrim").hidden = true; $("sheet").hidden = true; openKey = null; settingsOpen = false; }
 $("scrim").onclick = closeSheet; $("closeSheet").onclick = closeSheet;
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("sheet").hidden) closeSheet(); });
 
@@ -444,7 +448,7 @@ function renderRecipeSheet(){
     pane = `<input class="field" id="urlIn" type="url" inputmode="url" placeholder="https://… レシピのページのURL（スクショだけなら空欄でOK）">
       <input class="field" id="urlName" type="text" placeholder="料理名（例：鶏むねのねぎ塩炒め）">
       <textarea class="field" id="urlIng" rows="5" placeholder="材料（空欄でOK。XやInstagramなど読み取れないページは、下のボタンでスクショから読み取るか、貼り付け）"></textarea>
-      <label class="btn ghost shot" for="shotIn">スクショから材料を読み取る</label>
+      <label class="btn ghost shot" for="shotIn"><span class="yen" aria-hidden="true">¥</span>スクショから材料を読み取る</label>
       <input id="shotIn" type="file" accept="image/*" multiple hidden>
       <p class="note" id="shotStatus" hidden></p>
       <button class="btn" id="addUrl">この料理を追加</button>
@@ -600,24 +604,35 @@ $("sheetBody").addEventListener("click", async e => {
   catch(_){ toast("コピーできませんでした"); }
 });
 
-/* ---------- テーマ（自動→ライト→ダーク） ---------- */
+/* ---------- 設定（右上の歯車） ---------- */
 const THEMES = [["auto","自動"],["light","ライト"],["dark","ダーク"]];
 function applyTheme(t){
   if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
   else delete document.documentElement.dataset.theme;
-  $("themeBtn").textContent = (THEMES.find(x => x[0] === t) || THEMES[0])[1];
   const bg = getComputedStyle(document.body).backgroundColor;
   document.querySelector('meta[name="theme-color"]').setAttribute("content", bg);
 }
 let theme = "auto";
 try { theme = localStorage.getItem("kondate.theme") || "auto"; } catch(e){}
 applyTheme(theme);
-$("themeBtn").addEventListener("click", () => {
-  const i = THEMES.findIndex(x => x[0] === theme);
-  theme = THEMES[(i + 1) % THEMES.length][0];
-  try { localStorage.setItem("kondate.theme", theme); } catch(e){}
-  applyTheme(theme);
-  toast(`画面の明るさ：${THEMES.find(x => x[0] === theme)[1]}`);
+
+let settingsOpen = false;
+function renderSettings(){
+  $("sheetBody").innerHTML = `
+    <div><p class="lbl">画面の明るさ</p>
+      <div class="seg three" role="group" aria-label="画面の明るさ">${THEMES.map(([k, l]) => `<button data-theme-opt="${k}" aria-pressed="${k === theme}">${l}</button>`).join("")}</div>
+      <p class="note" style="margin-top:6px">「自動」はスマホの設定に合わせます。この端末だけの設定です。</p></div>`;
+}
+$("gearBtn").addEventListener("click", () => {
+  openKey = null;
+  showSheet("設定"); settingsOpen = true; renderSettings();
+});
+$("sheetBody").addEventListener("click", e => {
+  if (!settingsOpen) return;
+  const b = e.target.closest("[data-theme-opt]"); if (!b) return;
+  theme = b.dataset.themeOpt;
+  try { localStorage.setItem("kondate.theme", theme); } catch(err){}
+  applyTheme(theme); renderSettings();
 });
 
 /* ---------- お知らせ ---------- */

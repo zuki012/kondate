@@ -1,4 +1,4 @@
-# 献立帳（kondate）
+# 今週なに食べよ（kondate）
 
 - Vercel（Hobbyプラン）でホスティング。main への push で自動公開される
 - Hobbyプランの非公開リポジトリは、コミットの作者がリポジトリの持ち主でないと自動公開が止まる。コミットは必ず `--author="zuki012 <341704653+zuki012@users.noreply.github.com>"` で作る

@@ -2,6 +2,6 @@
   "name": "kondate",
   "private": true,
   "type": "module",
-  "description": "わが家の献立帳：Notionのレシピで献立を決め、AIで買い出しリストを作るサイト",
+  "description": "今週なに食べよ：Notionのレシピで献立を決め、AIで買い出しリストを作るサイト",
   "engines": { "node": ">=20" }
 }

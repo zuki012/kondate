@@ -208,6 +208,16 @@ body .toast.top{top:calc(16px + env(safe-area-inset-top,0px));bottom:auto}
 <div class="toast" id="toast" hidden></div>
 
 <script>
+// 開くたびに、タイトルがちょっと変わる（遊び心）。直前と同じものは出さない
+(function(){
+  var T=["今週なに食べよ","今日なに食べよ","なに食べたい？","おなかすいた","ふたりごはん","もぐもぐ会議","今夜のごはんは？","食べたいものは？","冷蔵庫と相談","なにつくろ","今日もごはん","ごはんの時間だよ","今週もおいしく","ごはん何にする？"];
+  var last=-1;try{last=Number(localStorage.getItem("kondate.title"));}catch(e){}
+  var i;do{i=Math.floor(Math.random()*T.length);}while(i===last&&T.length>1);
+  try{localStorage.setItem("kondate.title",String(i));}catch(e){}
+  document.querySelectorAll("h1").forEach(function(h){h.textContent=T[i];});
+})();
+</script>
+<script>
 (() => {
 "use strict";
 const SLOTS = [{k:"m",l:"朝"},{k:"l",l:"昼"},{k:"d",l:"晩"},{k:"x",l:"＋α"}];

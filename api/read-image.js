@@ -1,6 +1,6 @@
 // POST /api/read-image {images:["data:image/jpeg;base64,..."]}
 //  → レシピのスクリーンショットから料理名・基準人数・材料をClaude APIで読み取る
-import { askClaudeRaw, parseJsonLoose } from "../lib/shopping.js";
+import { askClaudeJson, IMAGE_SCHEMA } from "../lib/shopping.js";
 import { checkAuth, fail, readJson } from "../lib/http.js";
 
 export const config = { maxDuration: 60 };
@@ -14,7 +14,7 @@ const PROMPT = `画像はレシピのスクリーンショットです。料理�
 - 料理名が書かれていなければ、材料から短く名付ける。
 - 読み取れない場合は ingredients を空にする。
 
-出力はJSONだけ: {"name":"","base":"","ingredients":"1行目\\n2行目"}`;
+結果は recipe ツールで返す。`;
 
 export default async function handler(req, res) {
   if (!checkAuth(req, res)) return;
@@ -29,7 +29,7 @@ export default async function handler(req, res) {
       ...list.map((m) => ({ type: "image", source: { type: "base64", media_type: m[1], data: m[2] } })),
       { type: "text", text: PROMPT },
     ];
-    const out = parseJsonLoose(await askClaudeRaw(content, 1500));
+    const out = await askClaudeJson(content, IMAGE_SCHEMA, { name: "recipe", maxTokens: 2000 });
     res.status(200).json({
       name: String(out.name || "").slice(0, 100),
       base: String(out.base || "").slice(0, 50),

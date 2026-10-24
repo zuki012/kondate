@@ -12,6 +12,8 @@ function cleanItems(items) {
     if (type === "beetto") out.id = String(x.id || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 60);
     if (type === "url") out.url = String(x.url || "").slice(0, 500);
     if (type === "url" && x.ing) out.ing = String(x.ing).slice(0, 3000);
+    // 「ピーマンの方だけ」など、そのレシピの使い方の指示
+    if (type !== "text" && x.note) out.note = String(x.note).trim().slice(0, 100);
     return out;
   }).filter((x) => x.name);
 }

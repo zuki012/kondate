@@ -108,7 +108,13 @@ textarea.field{resize:vertical;line-height:1.5}
 .current li{display:flex;align-items:center;gap:8px;background:var(--mode-soft);border-radius:10px;padding:8px 8px 8px 12px}
 .current li span{flex:1;min-width:0;overflow-wrap:anywhere}
 .current li small{display:block;color:var(--muted);font-size:11px}
+.current li small.nt{color:var(--mode);font-weight:700}
+.current li.ne{background:transparent;padding:0 0 4px;gap:6px}
+.current li.ne .field{flex:1;min-width:0}
+.current li.ne .btn{width:auto;flex:none;padding:10px 14px}
+.chip .cn{display:block;font-size:10px;color:var(--muted)}
 .rm{border:0;background:transparent;color:var(--danger);font-weight:700;padding:6px 8px;cursor:pointer;border-radius:8px}
+.rm.nb{color:var(--mode)}
 .empty{color:var(--muted);font-size:13px;margin:0}
 .tabs{display:flex;gap:6px;flex-wrap:wrap}
 .tabs button{border:1px solid var(--line);background:transparent;border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer}
@@ -323,7 +329,7 @@ function inRange(dk, sk){
 const isEdge = (dk, sk) => (selA && selA.d===dk && selA.s===sk) || (selB && selB.d===dk && selB.s===sk);
 function chipHTML(it){
   const cls = it.type === "url" ? "chip url" : it.type === "text" ? "chip text" : it.type === "beetto" ? "chip bt" : "chip";
-  return `<span class="${cls}">${esc(it.name)}</span>`;
+  return `<span class="${cls}">${esc(it.name)}${it.note ? `<span class="cn">${esc(it.note)}</span>` : ""}</span>`;
 }
 function render(){
   let h = `<div class="row head" aria-hidden="true"><div></div>${SLOTS.map(s=>`<div>${s.l}</div>`).join("")}</div>`;
@@ -393,6 +399,7 @@ function updateShopBar(){
 }
 
 /* ---------- 下から出る画面 ---------- */
+let noteEdit = -1; // 「指示」を書いているレシピの番号
 let openKey = null, tab = "search", genre = "すべて", query = "", searchTimer = null, searchSeq = 0, lastResults = [];
 // beetto：自由検索＋フェーズ・朝昼夜で絞り込み
 let btQuery = "", btPhase = 0, btMeal = "", btResults = [], btTimer = null, btSeq = 0;
@@ -404,7 +411,7 @@ $("scrim").onclick = closeSheet; $("closeSheet").onclick = closeSheet;
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("sheet").hidden) closeSheet(); });
 
 function openRecipeSheet(d, s){
-  openKey = `${d}_${s}`; query = ""; tab = "search";
+  openKey = `${d}_${s}`; query = ""; tab = "search"; noteEdit = -1;
   showSheet(label(d, s));
   renderRecipeSheet();
   runSearch();
@@ -462,7 +469,7 @@ function runBtSearch(){
 function currentHTML(){
   const items = cells.get(openKey) || [];
   return items.length
-    ? `<ul class="current">${items.map((it, i) => `<li><span>${esc(it.name)}${it.type==="url" ? `<small>${esc(it.url || "材料を登録済み")}</small>` : it.type==="text" ? "<small>メモ</small>" : it.type==="beetto" ? "<small>beetto</small>" : ""}</span><button class="rm" data-rm="${i}" aria-label="${esc(it.name)}を外す">外す</button></li>`).join("")}</ul>`
+    ? `<ul class="current">${items.map((it, i) => `<li><span>${esc(it.name)}${it.type==="url" ? `<small>${esc(it.url || "材料を登録済み")}</small>` : it.type==="text" ? "<small>メモ</small>" : it.type==="beetto" ? "<small>beetto</small>" : ""}${it.note ? `<small class="nt">指示：${esc(it.note)}</small>` : ""}</span>${it.type !== "text" ? `<button class="rm nb" data-note="${i}" aria-label="${esc(it.name)}に指示を書く">指示</button>` : ""}<button class="rm" data-rm="${i}" aria-label="${esc(it.name)}を外す">外す</button></li>${noteEdit === i ? `<li class="ne"><input class="field" id="noteIn" type="text" maxlength="100" placeholder="例：ピーマンの春巻きだけ、ツナ抜き、半量" value="${esc(it.note || "")}"><button class="btn" data-notesave="${i}">保存</button></li>` : ""}`).join("")}</ul>`
     : `<p class="empty">まだ何も登録されていません。下から探して追加できます。</p>`;
 }
 function footHTML(){
@@ -519,7 +526,11 @@ $("sheetBody").addEventListener("click", e => {
     closeSheet(); if (n) toast(`${where}に${n}品を登録しました`); return;
   }
   const rm = t.closest("[data-rm]");
-  if (rm){ items.splice(Number(rm.dataset.rm), 1); saveCell(openKey, items); renderCurrent(); return; }
+  if (rm){ items.splice(Number(rm.dataset.rm), 1); noteEdit = -1; saveCell(openKey, items); renderCurrent(); return; }
+  const nb = t.closest("[data-note]");
+  if (nb){ const i = Number(nb.dataset.note); noteEdit = noteEdit === i ? -1 : i; renderCurrent(); if (noteEdit >= 0) $("noteIn")?.focus(); return; }
+  const ns = t.closest("[data-notesave]");
+  if (ns){ saveNote(items, Number(ns.dataset.notesave)); return; }
   const tb = t.closest("[data-tab]");
   if (tb){ tab = tb.dataset.tab; renderRecipeSheet(); if (tab === "beetto") runBtSearch(); return; }
   const bp = t.closest("[data-btphase]");
@@ -552,6 +563,17 @@ $("sheetBody").addEventListener("click", e => {
     const name = $("memo").value.trim(); if (!name) return;
     items.push({type:"text", name}); saveCell(openKey, items); renderRecipeSheet(); toast("追加しました"); return;
   }
+});
+function saveNote(items, i){
+  const v = ($("noteIn")?.value || "").trim().slice(0, 100);
+  if (!items[i]) return;
+  items[i] = {...items[i]};
+  if (v) items[i].note = v; else delete items[i].note;
+  noteEdit = -1; saveCell(openKey, items); renderCurrent();
+  toast(v ? "指示を保存しました" : "指示を消しました");
+}
+$("sheetBody").addEventListener("keydown", e => {
+  if (e.target.id === "noteIn" && e.key === "Enter" && !e.isComposing){ e.preventDefault(); saveNote([...(cells.get(openKey) || [])], noteEdit); }
 });
 $("sheetBody").addEventListener("input", e => {
   if (e.target.id === "q"){ query = e.target.value; runSearch(); }
@@ -597,15 +619,17 @@ async function makeList(){
   const recipeItems = items.filter(x => x.type === "recipe" && x.id);
   const others = items.filter(x => x.type === "text");
   const counts = new Map();
-  for (const x of recipeItems) counts.set(x.id, (counts.get(x.id) || 0) + 1);
-  const entries = [...counts].map(([id, count]) => ({id, count}));
+  // 同じレシピでも「指示」が違えば別々に数える
+  const tally = (map, x) => { const k = x.id + "\n" + (x.note || ""); const c = map.get(k) || {id: x.id, note: x.note || "", count: 0}; c.count++; map.set(k, c); };
+  for (const x of recipeItems) tally(counts, x);
+  const entries = [...counts.values()];
   const btCounts = new Map();
-  for (const x of items.filter(x => x.type === "beetto" && x.id)) btCounts.set(x.id, (btCounts.get(x.id) || 0) + 1);
-  const beetto = [...btCounts].map(([id, count]) => ({id, count}));
+  for (const x of items.filter(x => x.type === "beetto" && x.id)) tally(btCounts, x);
+  const beetto = [...btCounts.values()];
   const urlCounts = new Map();
   for (const x of items.filter(x => x.type === "url" && (x.url || x.ing))){
-    const k = x.url + "\n" + (x.ing || "");
-    const cur = urlCounts.get(k) || {name: x.name, url: x.url, ing: x.ing || "", count: 0};
+    const k = x.url + "\n" + (x.ing || "") + "\n" + (x.note || "");
+    const cur = urlCounts.get(k) || {name: x.name, url: x.url, ing: x.ing || "", note: x.note || "", count: 0};
     cur.count++; urlCounts.set(k, cur);
   }
   const extras = [...urlCounts.values()];
@@ -625,7 +649,7 @@ async function makeList(){
     lastList = res.list;
     const failed = (res.failed || []);
     if (failed.length) lastOther += `<p class="err">次のページは材料を読み取れなかったため、リストに入っていません：${failed.map(esc).join("、")}。献立のマスで一度外し、「URLを貼る」で材料を貼り付けて登録し直すと計算に入ります。</p>`;
-    lastRaw = `<details><summary>レシピごとの材料（元の表記）とメモ</summary>${res.recipes.map(r => `<h4>${esc(r.name)}${r.count>1?`（${r.count}回分）`:""}</h4><pre>${esc(r.base ? "基準: " + r.base + "\n" : "")}${esc(r.ingredients || "材料の記載なし")}</pre>`).join("")}${memos.length ? `<h4>メモ</h4><pre>${esc(memos.map(m => m.name + (m.count > 1 ? `（${m.count}回分）` : "")).join("\n"))}</pre>` : ""}</details>`;
+    lastRaw = `<details><summary>レシピごとの材料（元の表記）とメモ</summary>${res.recipes.map(r => `<h4>${esc(r.name)}${r.count>1?`（${r.count}回分）`:""}${r.note ? `<small>（指示：${esc(r.note)}）</small>` : ""}</h4><pre>${esc(r.base ? "基準: " + r.base + "\n" : "")}${esc(r.ingredients || "材料の記載なし")}</pre>`).join("")}${memos.length ? `<h4>メモ</h4><pre>${esc(memos.map(m => m.name + (m.count > 1 ? `（${m.count}回分）` : "")).join("\n"))}</pre>` : ""}</details>`;
     renderList();
   } catch(e){
     if (e instanceof AuthError) return showLogin(e.message);

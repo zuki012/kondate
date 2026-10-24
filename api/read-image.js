@@ -14,7 +14,7 @@ const PROMPT = `画像はレシピのスクリーンショットです。料理�
 - 料理名が書かれていなければ、材料から短く名付ける。
 - 読み取れない場合は ingredients を空にする。
 
-結果は recipe ツールで返す。`;
+結果は指定のJSONの形で返す。`;
 
 export default async function handler(req, res) {
   if (!checkAuth(req, res)) return;
@@ -29,7 +29,7 @@ export default async function handler(req, res) {
       ...list.map((m) => ({ type: "image", source: { type: "base64", media_type: m[1], data: m[2] } })),
       { type: "text", text: PROMPT },
     ];
-    const out = await askClaudeJson(content, IMAGE_SCHEMA, { name: "recipe", maxTokens: 2000 });
+    const out = await askClaudeJson(content, IMAGE_SCHEMA, { maxTokens: 3000, example: '{"name":"","base":"","ingredients":"1行目\\n2行目"}' });
     res.status(200).json({
       name: String(out.name || "").slice(0, 100),
       base: String(out.base || "").slice(0, 50),

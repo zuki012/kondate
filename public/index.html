@@ -389,7 +389,7 @@ function updateShopBar(){
   const items = rangeItems();
   const span = selB ? `${label(selA.d, selA.s)} → ${label(selB.d, selB.s)}` : `${label(selA.d, selA.s)}（次に最後のマスをタップ）`;
   t.innerHTML = `<span><b>${esc(span)}</b><br>${items.length}品</span>`;
-  btn.disabled = !items.some(x => x.type === "recipe" || x.type === "beetto" || x.type === "url");
+  btn.disabled = !items.some(x => x.type === "recipe" || x.type === "beetto" || x.type === "url" || x.type === "text");
 }
 
 /* ---------- 下から出る画面 ---------- */
@@ -430,7 +430,7 @@ function runSearch(){
 }
 
 function resultsHTML(list){
-  if (!list.length) return `<li><p class="empty">見つかりませんでした。別のことばで探すか、「メモ」で名前だけ登録できます。</p></li>`;
+  if (!list.length) return `<li><p class="empty">見つかりませんでした。別のことばで探すか、「メモ」に書いて登録できます。</p></li>`;
   return list.map(r => `<li><button data-add="${esc(r.id)}" data-name="${esc(r.name)}">
     <span class="nm">${esc(r.name)}<span class="meta">${[r.genre, r.category, r.time].filter(Boolean).map(esc).join("・")}</span></span>
     <span class="plus">＋追加</span></button></li>`).join("");
@@ -462,7 +462,7 @@ function runBtSearch(){
 function currentHTML(){
   const items = cells.get(openKey) || [];
   return items.length
-    ? `<ul class="current">${items.map((it, i) => `<li><span>${esc(it.name)}${it.type==="url" ? `<small>${esc(it.url || "材料を登録済み")}</small>` : it.type==="text" ? "<small>メモ（Notionにないもの）</small>" : it.type==="beetto" ? "<small>beetto</small>" : ""}</span><button class="rm" data-rm="${i}" aria-label="${esc(it.name)}を外す">外す</button></li>`).join("")}</ul>`
+    ? `<ul class="current">${items.map((it, i) => `<li><span>${esc(it.name)}${it.type==="url" ? `<small>${esc(it.url || "材料を登録済み")}</small>` : it.type==="text" ? "<small>メモ</small>" : it.type==="beetto" ? "<small>beetto</small>" : ""}</span><button class="rm" data-rm="${i}" aria-label="${esc(it.name)}を外す">外す</button></li>`).join("")}</ul>`
     : `<p class="empty">まだ何も登録されていません。下から探して追加できます。</p>`;
 }
 function footHTML(){
@@ -503,9 +503,9 @@ function renderRecipeSheet(){
       <button class="btn" id="addUrl">この料理を追加</button>
       <p class="note">URLだけで登録すると、買い出しリストを作るときにページから材料を読み取ります（無料）。スクショの読み取りはAIを使うので、1回数円かかります。</p>`;
   } else {
-    pane = `<input class="field" id="memo" type="text" placeholder="例：外食、納豆ごはん、作り置きの残り">
+    pane = `<input class="field" id="memo" type="text" placeholder="例：納豆ごはん、キャベツ1玉、外食">
       <button class="btn" id="addMemo">メモを追加</button>
-      <p class="note">メモは献立表に表示されますが、買い出しリストの計算には入りません。</p>`;
+      <p class="note">メモに書いた食材や料理も、買い出しリストに入ります。分量が書いてあればその量、なければ一般的な量で入れます。「外食」「残り物」など買い物が要らないものは入りません。</p>`;
   }
   $("sheetBody").innerHTML = `<div><p class="lbl">この食事のレシピ</p><div id="currentBox">${currentHTML()}</div></div>${tabs}${pane}<div class="sh-foot" id="footBox">${footHTML()}</div>`;
 }
@@ -613,16 +613,19 @@ async function makeList(){
   const span = selB ? `${label(selA.d, selA.s)} → ${label(selB.d, selB.s)}` : label(selA.d, selA.s);
   checked = new Set(); lastList = null;
   showSheet("買い出しリスト");
-  lastHead = `<p class="note">${esc(span)}／${people}人分／レシピ${entries.length + beetto.length + extras.length}品</p>`;
-  lastOther = others.length ? `<p class="note">メモはリストに入っていません：${others.map(o => esc(o.name)).join("、")}</p>` : "";
+  const memoCounts = new Map();
+  for (const o of others) memoCounts.set(o.name, (memoCounts.get(o.name) || 0) + 1);
+  const memos = [...memoCounts].map(([name, count]) => ({name, count}));
+  lastHead = `<p class="note">${esc(span)}／${people}人分／${[entries.length + beetto.length + extras.length ? `レシピ${entries.length + beetto.length + extras.length}品` : "", memos.length ? `メモ${memos.length}件` : ""].filter(Boolean).join("＋")}</p>`;
+  lastOther = "";
   lastRaw = "";
   $("sheetBody").innerHTML = `${lastHead}<div class="status"><span class="dot"></span><span>レシピを読んで、材料を合算しています…（20秒ほど）</span></div>${lastOther}`;
   try {
-    const res = await api("/api/shopping", {method:"POST", body: JSON.stringify({entries, beetto, extras, people})});
+    const res = await api("/api/shopping", {method:"POST", body: JSON.stringify({entries, beetto, extras, memos, people})});
     lastList = res.list;
     const failed = (res.failed || []);
     if (failed.length) lastOther += `<p class="err">次のページは材料を読み取れなかったため、リストに入っていません：${failed.map(esc).join("、")}。献立のマスで一度外し、「URLを貼る」で材料を貼り付けて登録し直すと計算に入ります。</p>`;
-    lastRaw = `<details><summary>レシピごとの材料（元の表記）</summary>${res.recipes.map(r => `<h4>${esc(r.name)}${r.count>1?`（${r.count}回分）`:""}</h4><pre>${esc(r.base ? "基準: " + r.base + "\n" : "")}${esc(r.ingredients || "材料の記載なし")}</pre>`).join("")}</details>`;
+    lastRaw = `<details><summary>レシピごとの材料（元の表記）とメモ</summary>${res.recipes.map(r => `<h4>${esc(r.name)}${r.count>1?`（${r.count}回分）`:""}</h4><pre>${esc(r.base ? "基準: " + r.base + "\n" : "")}${esc(r.ingredients || "材料の記載なし")}</pre>`).join("")}${memos.length ? `<h4>メモ</h4><pre>${esc(memos.map(m => m.name + (m.count > 1 ? `（${m.count}回分）` : "")).join("\n"))}</pre>` : ""}</details>`;
     renderList();
   } catch(e){
     if (e instanceof AuthError) return showLogin(e.message);

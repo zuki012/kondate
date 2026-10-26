@@ -87,6 +87,15 @@ body.shop .cell .add{visibility:hidden}
 .rangeline{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px}
 .rangeline b{font-variant-numeric:tabular-nums}
 .ppl{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);white-space:nowrap}
+.shopbtns{display:flex;gap:8px}
+.shopbtns #histBtn{flex:none;width:auto;padding-left:14px;padding-right:14px}
+.shopbtns #makeList{flex:1;min-width:0}
+.hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.hist button{width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:transparent;padding:12px 2px;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.hist button:hover{background:var(--mode-soft)}
+.hist .nm{font-weight:500;overflow-wrap:anywhere}
+.hist .meta{font-size:11px;color:var(--muted)}
+.backlink{border:0;background:transparent;color:var(--mode);font-weight:700;padding:0;cursor:pointer;font-size:13px;align-self:flex-start}
 .ppl select{font:inherit;padding:4px 6px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink)}
 .btn{border:0;border-radius:12px;padding:13px 16px;font-weight:700;font-size:15px;cursor:pointer;background:var(--mode);color:var(--mode-ink);width:100%}
 .btn[disabled]{opacity:.4;cursor:default}
@@ -200,7 +209,10 @@ body .toast.top{top:calc(16px + env(safe-area-inset-top,0px));bottom:auto}
         <select id="ppl"><option>1</option><option selected>2</option><option>3</option><option>4</option></select>
       </label>
     </div>
-    <button class="btn" id="makeList" disabled><span class="yen" aria-hidden="true">¥</span>買い出しリストを作る</button>
+    <div class="shopbtns">
+      <button class="btn ghost" id="histBtn" aria-label="過去の買い出しリスト">履歴</button>
+      <button class="btn" id="makeList" disabled><span class="yen" aria-hidden="true">¥</span>買い出しリストを作る</button>
+    </div>
   </div>
 </div>
 
@@ -612,7 +624,61 @@ $("sheetBody").addEventListener("change", async e => {
 
 /* ---------- 買い出しリスト ---------- */
 let lastList = null, lastHead = "", lastOther = "", lastRaw = "", checked = new Set();
+let currentListId = null, fromHistory = false, checkTimer = null;
 $("makeList").onclick = makeList;
+$("histBtn").onclick = openHistory;
+
+// 保存済み（または今できた）リストを表示する
+function showListData(d, id, checkedKeys){
+  currentListId = id || null;
+  checked = new Set(checkedKeys || []);
+  lastList = d.list || {buy: [], check: []};
+  const recipes = Array.isArray(d.recipes) ? d.recipes : [];
+  const memos = Array.isArray(d.memos) ? d.memos : [];
+  const parts = [recipes.length ? `レシピ${recipes.length}品` : "", memos.length ? `メモ${memos.length}件` : ""].filter(Boolean).join("＋");
+  lastHead = (fromHistory ? `<button class="backlink" id="backHist">← 過去のリスト一覧</button>` : "")
+    + `<p class="note">${esc(d.span || "")}／${esc(d.people || "")}人分${parts ? "／" + parts : ""}${d.createdLabel ? `<br>${esc(d.createdLabel)}に作成` : ""}</p>`;
+  const failed = Array.isArray(d.failed) ? d.failed : [];
+  lastOther = failed.length ? `<p class="err">次のページは材料を読み取れなかったため、リストに入っていません：${failed.map(esc).join("、")}。献立のマスで一度外し、「URLを貼る」で材料を貼り付けて登録し直すと計算に入ります。</p>` : "";
+  lastRaw = (recipes.length || memos.length) ? `<details><summary>レシピごとの材料（元の表記）とメモ</summary>${recipes.map(r => `<h4>${esc(r.name)}${r.count>1?`（${r.count}回分）`:""}${r.note ? `<small>（指示：${esc(r.note)}）</small>` : ""}</h4><pre>${esc(r.base ? "基準: " + r.base + "\n" : "")}${esc(r.ingredients || "材料の記載なし")}</pre>`).join("")}${memos.length ? `<h4>メモ</h4><pre>${esc(memos.map(m => m.name + (m.count > 1 ? `（${m.count}回分）` : "")).join("\n"))}</pre>` : ""}</details>` : "";
+  renderList();
+}
+const fmtCreated = iso => { const t = new Date(iso); if (isNaN(t)) return ""; return `${t.getMonth()+1}/${t.getDate()}（${"日月火水木金土"[t.getDay()]}）${String(t.getHours()).padStart(2,"0")}:${String(t.getMinutes()).padStart(2,"0")}`; };
+
+async function openHistory(){
+  fromHistory = true; currentListId = null; lastList = null;
+  showSheet("過去の買い出しリスト");
+  $("sheetBody").innerHTML = `<div class="status"><span class="dot"></span><span>読み込み中…</span></div>`;
+  try {
+    const { lists } = await api("/api/lists");
+    $("sheetBody").innerHTML = lists.length
+      ? `<p class="note">新しい順に表示しています。タップすると中身とチェックの状態が見られます。</p><ul class="hist">${lists.map(l => `<li><button data-openlist="${esc(l.id)}"><span class="nm">${esc(l.name)}</span><span class="meta">${esc(fmtCreated(l.created))}に作成</span></button></li>`).join("")}</ul>`
+      : `<p class="empty">まだ保存されたリストはありません。「買い出しリストを作る」で作ったリストが、ここに残ります。</p>`;
+  } catch(e){
+    if (e instanceof AuthError) return showLogin(e.message);
+    $("sheetBody").innerHTML = `<p class="err">読み込めませんでした：${esc(e.message)}</p>`;
+  }
+}
+async function openSavedList(id){
+  showSheet("買い出しリスト");
+  $("sheetBody").innerHTML = `<div class="status"><span class="dot"></span><span>読み込み中…</span></div>`;
+  try {
+    const r = await api(`/api/lists?id=${encodeURIComponent(id)}`);
+    showListData({...r.data, createdLabel: fmtCreated(r.created)}, r.id, r.checked);
+  } catch(e){
+    if (e instanceof AuthError) return showLogin(e.message);
+    $("sheetBody").innerHTML = `<button class="backlink" id="backHist">← 過去のリスト一覧</button><p class="err">読み込めませんでした：${esc(e.message)}</p>`;
+  }
+}
+// チェックはNotionにも保存して、ふたりで共有する
+function saveChecked(){
+  if (!currentListId) return;
+  clearTimeout(checkTimer);
+  const id = currentListId, keys = [...checked];
+  checkTimer = setTimeout(() => {
+    api("/api/lists", {method:"POST", body: JSON.stringify({id, checked: keys})}).catch(e => { if (!(e instanceof AuthError)) toast("チェックを保存できませんでした"); });
+  }, 700);
+}
 
 async function makeList(){
   const items = rangeItems();
@@ -635,7 +701,7 @@ async function makeList(){
   const extras = [...urlCounts.values()];
   const people = Number($("ppl").value);
   const span = selB ? `${label(selA.d, selA.s)} → ${label(selB.d, selB.s)}` : label(selA.d, selA.s);
-  checked = new Set(); lastList = null;
+  checked = new Set(); lastList = null; currentListId = null; fromHistory = false;
   showSheet("買い出しリスト");
   const memoCounts = new Map();
   for (const o of others) memoCounts.set(o.name, (memoCounts.get(o.name) || 0) + 1);
@@ -645,12 +711,8 @@ async function makeList(){
   lastRaw = "";
   $("sheetBody").innerHTML = `${lastHead}<div class="status"><span class="dot"></span><span>レシピを読んで、材料を合算しています…（20秒ほど）</span></div>${lastOther}`;
   try {
-    const res = await api("/api/shopping", {method:"POST", body: JSON.stringify({entries, beetto, extras, memos, people})});
-    lastList = res.list;
-    const failed = (res.failed || []);
-    if (failed.length) lastOther += `<p class="err">次のページは材料を読み取れなかったため、リストに入っていません：${failed.map(esc).join("、")}。献立のマスで一度外し、「URLを貼る」で材料を貼り付けて登録し直すと計算に入ります。</p>`;
-    lastRaw = `<details><summary>レシピごとの材料（元の表記）とメモ</summary>${res.recipes.map(r => `<h4>${esc(r.name)}${r.count>1?`（${r.count}回分）`:""}${r.note ? `<small>（指示：${esc(r.note)}）</small>` : ""}</h4><pre>${esc(r.base ? "基準: " + r.base + "\n" : "")}${esc(r.ingredients || "材料の記載なし")}</pre>`).join("")}${memos.length ? `<h4>メモ</h4><pre>${esc(memos.map(m => m.name + (m.count > 1 ? `（${m.count}回分）` : "")).join("\n"))}</pre>` : ""}</details>`;
-    renderList();
+    const res = await api("/api/shopping", {method:"POST", body: JSON.stringify({entries, beetto, extras, memos, people, title: span})});
+    showListData({span, people, list: res.list, failed: res.failed, recipes: res.recipes, memos}, res.listId, []);
   } catch(e){
     if (e instanceof AuthError) return showLogin(e.message);
     $("sheetBody").innerHTML = `${lastHead}<p class="err">リストを作れませんでした：${esc(e.message)}</p>${lastOther}`;
@@ -682,7 +744,12 @@ function renderList(){
 $("sheetBody").addEventListener("change", e => {
   const k = e.target.dataset?.ck; if (!k) return;
   if (e.target.checked) checked.add(k); else checked.delete(k);
-  renderList();
+  renderList(); saveChecked();
+});
+$("sheetBody").addEventListener("click", e => {
+  const ol = e.target.closest("[data-openlist]");
+  if (ol){ openSavedList(ol.dataset.openlist); return; }
+  if (e.target.id === "backHist"){ openHistory(); return; }
 });
 $("sheetBody").addEventListener("click", async e => {
   if (e.target.id !== "copyList" || !lastList) return;

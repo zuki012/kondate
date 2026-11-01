@@ -1,7 +1,8 @@
 // GET  /api/plan?from=2026-10-06&to=2026-11-02  → 献立の一覧
 // POST /api/plan {date, slot, items}            → 1マス分を保存（itemsが空なら削除）
-import { listPlan, savePlanCell, SLOT_LABEL } from "../lib/notion.js";
-import { checkAuth, fail, readJson, isDate } from "../lib/http.js";
+import { SLOT_LABEL } from "../lib/notion.js";
+import { listPlan, savePlanCell } from "../lib/store.js";
+import { auth, fail, readJson, isDate } from "../lib/http.js";
 
 function cleanItems(items) {
   if (!Array.isArray(items)) return [];
@@ -19,17 +20,20 @@ function cleanItems(items) {
 }
 
 export default async function handler(req, res) {
-  if (!checkAuth(req, res)) return;
+  const hh = await auth(req, res); if (!hh) return;
   try {
     if (req.method === "GET") {
       const { from, to } = req.query;
       if (!isDate(from) || !isDate(to)) return res.status(400).json({ error: "日付の指定が正しくありません" });
-      return res.status(200).json({ cells: await listPlan(from, to) });
+      // 世帯の名前と、持ち主かどうか（画面の出し分けに使う）も返す
+      return res.status(200).json({ cells: await listPlan(hh, from, to), household: { name: hh.name, owner: hh.owner } });
     }
     if (req.method === "POST") {
       const { date, slot, items } = await readJson(req);
       if (!isDate(date) || !SLOT_LABEL[slot]) return res.status(400).json({ error: "日付か食事の指定が正しくありません" });
-      await savePlanCell(date, slot, cleanItems(items));
+      // 友達の家ではNotionのレシピは使えない
+      const clean = cleanItems(items).filter((x) => hh.owner || x.type !== "recipe");
+      await savePlanCell(hh, date, slot, clean);
       return res.status(200).json({ ok: true });
     }
     res.status(405).json({ error: "許可されていない操作です" });

@@ -124,6 +124,11 @@ textarea.field{resize:vertical;line-height:1.5}
 .chip .cn{display:block;font-size:10px;color:var(--muted)}
 .rm{border:0;background:transparent;color:var(--danger);font-weight:700;padding:6px 8px;cursor:pointer;border-radius:8px}
 .rm.nb{color:var(--mode)}
+.hhops{justify-content:flex-end;gap:16px!important;margin-top:-2px}
+.backlink.del{color:var(--danger)}
+.hhadd{display:flex;gap:8px;margin-top:8px}
+.hhadd .field{flex:1;min-width:0}
+.hhadd .btn{width:auto;flex:none;padding-left:16px;padding-right:16px}
 .empty{color:var(--muted);font-size:13px;margin:0}
 .tabs{display:flex;gap:6px;flex-wrap:wrap}
 .tabs button{border:1px solid var(--line);background:transparent;border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer}
@@ -177,7 +182,7 @@ body .toast.top{top:calc(16px + env(safe-area-inset-top,0px));bottom:auto}
 
 <form class="login" id="login" hidden>
   <h1>今週なに食べよ</h1>
-  <p class="note">ふたりで決めた合言葉を入れてください。この端末では次回から入力不要です。</p>
+  <p class="note">合言葉を入れてください。この端末では次回から入力不要です。</p>
   <div class="passrow">
     <input class="field masked" id="pass" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="合言葉（日本語も入力できます）">
     <button class="btn ghost peek" type="button" id="peek" aria-pressed="false">表示</button>
@@ -297,14 +302,17 @@ let pastDays = 0, futureDays = 21;
 const cells = new Map();
 let mode = "recipe", pending = 0;
 
+// どの世帯で入っているか（持ち主＝Kazukiさん家だけNotionのレシピが使える）
+let HH = {name: "わが家", owner: true};
 async function loadPlan(){
   const from = keyOf(addDays(today, -pastDays)), to = keyOf(addDays(today, futureDays));
   try {
-    const { cells: got } = await api(`/api/plan?from=${from}&to=${to}`);
+    const { cells: got, household } = await api(`/api/plan?from=${from}&to=${to}`);
+    if (household) HH = household;
     if (pending) return; // 保存中は上書きしない
     cells.clear();
     for (const k in got) cells.set(k, got[k]);
-    $("sync").textContent = "Notionと同期済み";
+    $("sync").textContent = HH.owner ? "Notionと同期済み" : "同期済み";
     render();
     if (openKey) renderCurrent();
   } catch(e){
@@ -321,7 +329,7 @@ async function saveCell(key, items){
   pending++; $("sync").textContent = "保存中…";
   try {
     await api("/api/plan", {method:"POST", body: JSON.stringify({date, slot, items})});
-    $("sync").textContent = "Notionと同期済み";
+    $("sync").textContent = HH.owner ? "Notionと同期済み" : "同期済み";
   } catch(e){
     if (e instanceof AuthError) return showLogin(e.message);
     $("sync").textContent = "保存できませんでした";
@@ -423,10 +431,10 @@ $("scrim").onclick = closeSheet; $("closeSheet").onclick = closeSheet;
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("sheet").hidden) closeSheet(); });
 
 function openRecipeSheet(d, s){
-  openKey = `${d}_${s}`; query = ""; tab = "search"; noteEdit = -1;
+  openKey = `${d}_${s}`; query = ""; tab = HH.owner ? "search" : "beetto"; noteEdit = -1;
   showSheet(label(d, s));
   renderRecipeSheet();
-  runSearch();
+  if (tab === "search") runSearch(); else runBtSearch();
 }
 
 function runSearch(){
@@ -496,7 +504,7 @@ function renderCurrent(){
 
 function renderRecipeSheet(){
   const tabs = `<div class="tabs" role="tablist">
-      <button role="tab" data-tab="search" aria-selected="${tab==="search"}">Notion</button>
+      ${HH.owner ? `<button role="tab" data-tab="search" aria-selected="${tab==="search"}">Notion</button>` : ""}
       <button role="tab" data-tab="beetto" aria-selected="${tab==="beetto"}">beetto</button>
       <button role="tab" data-tab="url" aria-selected="${tab==="url"}">URLを貼る</button>
       <button role="tab" data-tab="text" aria-selected="${tab==="text"}">メモ</button></div>`;
@@ -773,19 +781,80 @@ try { theme = localStorage.getItem("kondate.theme") || "auto"; } catch(e){}
 applyTheme(theme);
 
 let settingsOpen = false;
+// 友達との共有（持ち主だけ）
+let hhState = {loaded: false, ready: true, list: [], error: "", confirmDel: ""};
+function householdsHTML(){
+  if (!HH.owner) return `<div><p class="lbl">この画面</p><p class="note">「${esc(HH.name)}」の献立表です。献立や買い出しリストは、同じ合言葉で入った人とだけ共有されます。</p></div>`;
+  let body;
+  if (!hhState.loaded) body = `<p class="note">読み込み中…</p>`;
+  else if (hhState.error) body = `<p class="err">${esc(hhState.error)}</p>`;
+  else if (!hhState.ready) body = `<p class="note">友達用のデータ置き場がまだつながっていません。</p>`;
+  else body = `${hhState.list.length ? `<ul class="current">${hhState.list.map(h => `<li class="hh"><span>${esc(h.name)}<small>合言葉：<b>${esc(h.pass)}</b></small></span>
+        <button class="rm nb" data-hhcopy="${esc(h.id)}">コピー</button></li>
+        <li class="ne hhops"><button class="backlink" data-hhreset="${esc(h.id)}">合言葉を作り直す</button><button class="backlink del" data-hhdel="${esc(h.id)}">${hhState.confirmDel === h.id ? "本当に消す（献立も消えます）" : "この世帯を消す"}</button></li>`).join("")}</ul>` : `<p class="note">まだ友達の世帯はありません。</p>`}
+      <div class="hhadd"><input class="field" id="hhName" type="text" maxlength="30" placeholder="世帯の名前（例：たなか家）"><button class="btn" id="hhAdd">追加</button></div>
+      <p class="note">追加すると合言葉が発行されます。「コピー」でサイトのアドレスと合言葉をまとめてコピーできるので、LINEなどで送ってください。友達の献立は、わが家の献立やNotionとは混ざりません。</p>`;
+  return `<div><p class="lbl">友達との共有</p>${body}</div>`;
+}
 function renderSettings(){
   $("sheetBody").innerHTML = `
     <div><p class="lbl">画面の明るさ</p>
       <div class="seg three" role="group" aria-label="画面の明るさ">${THEMES.map(([k, l]) => `<button data-theme-opt="${k}" aria-pressed="${k === theme}">${l}</button>`).join("")}</div>
-      <p class="note" style="margin-top:6px">「自動」はスマホの設定に合わせます。この端末だけの設定です。</p></div>`;
+      <p class="note" style="margin-top:6px">「自動」はスマホの設定に合わせます。この端末だけの設定です。</p></div>
+    ${householdsHTML()}`;
+}
+async function loadHouseholds(){
+  if (!HH.owner) return;
+  try {
+    const r = await api("/api/households");
+    hhState = {...hhState, loaded: true, ready: r.ready, list: r.households || [], error: ""};
+  } catch(e){
+    if (e instanceof AuthError) return showLogin(e.message);
+    hhState = {...hhState, loaded: true, error: e.message};
+  }
+  if (settingsOpen) renderSettings();
+}
+async function hhPost(body){
+  try { return await api("/api/households", {method: "POST", body: JSON.stringify(body)}); }
+  catch(e){ if (e instanceof AuthError) showLogin(e.message); else toast(e.message); return null; }
 }
 $("gearBtn").addEventListener("click", () => {
   openKey = null;
-  showSheet("設定"); settingsOpen = true; renderSettings();
+  showSheet("設定"); settingsOpen = true; hhState.confirmDel = ""; renderSettings(); loadHouseholds();
 });
-$("sheetBody").addEventListener("click", e => {
+$("sheetBody").addEventListener("click", async e => {
   if (!settingsOpen) return;
-  const b = e.target.closest("[data-theme-opt]"); if (!b) return;
+  const t = e.target;
+  if (t.id === "hhAdd"){
+    const name = $("hhName").value.trim(); if (!name){ toast("世帯の名前を入れてください"); return; }
+    t.disabled = true;
+    const r = await hhPost({name});
+    if (r){ toast(`「${r.household.name}」を追加しました`); await loadHouseholds(); } else t.disabled = false;
+    return;
+  }
+  const cp = t.closest("[data-hhcopy]");
+  if (cp){
+    const h = hhState.list.find(x => x.id === cp.dataset.hhcopy); if (!h) return;
+    const text = `献立と買い出しのサイト「今週なに食べよ」に招待します。\n${location.origin}\n合言葉：${h.pass}\n（家族以外には教えないでね）`;
+    try { await navigator.clipboard.writeText(text); toast("アドレスと合言葉をコピーしました"); } catch(_){ toast("コピーできませんでした"); }
+    return;
+  }
+  const rs = t.closest("[data-hhreset]");
+  if (rs){
+    const r = await hhPost({id: rs.dataset.hhreset, reset: true});
+    if (r){ toast("合言葉を作り直しました。前の合言葉では入れません"); await loadHouseholds(); }
+    return;
+  }
+  const dl = t.closest("[data-hhdel]");
+  if (dl){
+    const id = dl.dataset.hhdel;
+    if (hhState.confirmDel !== id){ hhState.confirmDel = id; renderSettings(); return; }
+    const r = await hhPost({id, delete: true});
+    hhState.confirmDel = "";
+    if (r){ toast("世帯を消しました"); await loadHouseholds(); }
+    return;
+  }
+  const b = t.closest("[data-theme-opt]"); if (!b) return;
   theme = b.dataset.themeOpt;
   try { localStorage.setItem("kondate.theme", theme); } catch(err){}
   applyTheme(theme); renderSettings();

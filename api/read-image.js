@@ -1,7 +1,7 @@
 // POST /api/read-image {images:["data:image/jpeg;base64,..."]}
 //  → レシピのスクリーンショットから料理名・基準人数・材料をClaude APIで読み取る
 import { askClaudeJson, IMAGE_SCHEMA } from "../lib/shopping.js";
-import { checkAuth, fail, readJson } from "../lib/http.js";
+import { auth, fail, readJson } from "../lib/http.js";
 
 export const config = { maxDuration: 60 };
 
@@ -17,7 +17,7 @@ const PROMPT = `画像はレシピのスクリーンショットです。料理�
 結果は指定のJSONの形で返す。`;
 
 export default async function handler(req, res) {
-  if (!checkAuth(req, res)) return;
+  if (!(await auth(req, res))) return;
   if (req.method !== "POST") return res.status(405).json({ error: "許可されていない操作です" });
   try {
     const { images } = await readJson(req);

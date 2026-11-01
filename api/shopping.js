@@ -1,11 +1,12 @@
 // POST /api/shopping {entries:[{id, count, note}], beetto:[{id, count, note}], extras:[{name, url, ing, count, note}], memos:[{name, count}], people}
 //  note は「ピーマンの方だけ」など、そのレシピの使い方の指示
 //  → Notionのレシピと、URLで登録したレシピの材料を集め、Claude APIで合算した買い出しリストを返す
-import { getRecipeDetail, saveShoppingList } from "../lib/notion.js";
+import { getRecipeDetail } from "../lib/notion.js";
+import { saveShoppingList } from "../lib/store.js";
 import { buildPrompt, askClaude } from "../lib/shopping.js";
 import { readRecipePage } from "../lib/webrecipe.js";
 import { BEETTO } from "../lib/beetto-data.js";
-import { checkAuth, fail, readJson } from "../lib/http.js";
+import { auth, fail, readJson } from "../lib/http.js";
 
 export const config = { maxDuration: 60 };
 
@@ -13,11 +14,12 @@ const clampCount = (n) => Math.max(1, Math.min(10, Number(n) || 1));
 const noteOf = (e) => String(e?.note || "").trim().slice(0, 100);
 
 export default async function handler(req, res) {
-  if (!checkAuth(req, res)) return;
+  const hh = await auth(req, res); if (!hh) return;
   if (req.method !== "POST") return res.status(405).json({ error: "許可されていない操作です" });
   try {
     const { entries, extras, people, beetto, memos, title } = await readJson(req);
-    const list = (Array.isArray(entries) ? entries : []).slice(0, 40)
+    // Notionのレシピは持ち主の世帯だけ
+    const list = (hh.owner && Array.isArray(entries) ? entries : []).slice(0, 40)
       .map((e) => ({ id: String(e?.id || "").replace(/[^0-9a-f]/gi, ""), count: clampCount(e?.count), note: noteOf(e) }))
       .filter((e) => e.id.length === 32);
     const urls = (Array.isArray(extras) ? extras : []).slice(0, 10)
@@ -61,7 +63,7 @@ export default async function handler(req, res) {
     const span = String(title || "").slice(0, 100);
     let listId = null;
     try {
-      listId = await saveShoppingList(`${span || "買い出しリスト"}／${n}人分`, { span, people: n, list: result, failed, recipes: recipesOut, memos: memoList });
+      listId = await saveShoppingList(hh, `${span || "買い出しリスト"}／${n}人分`, { span, people: n, list: result, failed, recipes: recipesOut, memos: memoList });
     } catch (e) { console.error("履歴の保存に失敗", e); }
     res.status(200).json({ list: result, failed, recipes: recipesOut, listId });
   } catch (e) { fail(res, e); }

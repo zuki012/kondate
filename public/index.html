@@ -96,7 +96,10 @@ body.shop .cell .add{visibility:hidden}
 .hist .nm{font-weight:500;overflow-wrap:anywhere}
 .hist .meta{font-size:11px;color:var(--muted)}
 .backlink{border:0;background:transparent;color:var(--mode);font-weight:700;padding:0;cursor:pointer;font-size:13px;align-self:flex-start}
-.ppl select{font:inherit;padding:4px 6px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink)}
+.pplrow{display:flex;align-items:center;gap:6px}
+.pplrow .pplh{font-size:15px;font-weight:700;margin-right:4px;white-space:nowrap}
+.pplrow button{flex:1;min-width:0;font:inherit;font-size:17px;font-weight:700;padding:9px 0;border-radius:10px;border:1.5px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
+.pplrow button[aria-pressed="true"]{background:var(--mode);border-color:var(--mode);color:#fff}
 .btn{border:0;border-radius:12px;padding:13px 16px;font-weight:700;font-size:15px;cursor:pointer;background:var(--mode);color:var(--mode-ink);width:100%}
 .btn[disabled]{opacity:.4;cursor:default}
 .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
@@ -168,7 +171,8 @@ details pre{white-space:pre-wrap;font-family:var(--f-body);font-size:12px;margin
 details h4{margin:10px 0 0;font-size:13px}
 .err{background:color-mix(in srgb,var(--danger) 12%,transparent);color:var(--ink);border-radius:10px;padding:10px 12px;font-size:13px;margin:0}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(24px + env(safe-area-inset-bottom,0px));z-index:60;background:var(--ink);color:var(--paper);padding:9px 16px;border-radius:999px;font-size:13px;font-weight:500;max-width:calc(100% - 32px);text-align:center}
-body.shop .toast{bottom:calc(130px + env(safe-area-inset-bottom,0px))}
+body.shop .toast{bottom:calc(190px + env(safe-area-inset-bottom,0px))}
+body.shop .wrap{padding-bottom:210px}
 body .toast.top{top:calc(16px + env(safe-area-inset-top,0px));bottom:auto}
 .row2{display:flex;gap:8px}
 .login{max-width:360px;margin:18vh auto 0;padding-inline:16px;display:flex;flex-direction:column;gap:12px}
@@ -223,9 +227,11 @@ body .toast.top{top:calc(16px + env(safe-area-inset-top,0px));bottom:auto}
   <div class="in">
     <div class="rangeline">
       <span id="rangeText">最初のマスをタップ</span>
-      <label class="ppl" for="ppl">人数
-        <select id="ppl"><option>1</option><option selected>2</option><option>3</option><option>4</option></select>
-      </label>
+    </div>
+    <div class="pplrow" role="group" aria-label="人数">
+      <span class="pplh">人数</span>
+      <button type="button" data-ppl="1">1人</button><button type="button" data-ppl="2">2人</button><button type="button" data-ppl="3">3人</button><button type="button" data-ppl="4">4人</button>
+      <input type="hidden" id="ppl" value="2">
     </div>
     <div class="shopbtns">
       <button class="btn ghost" id="histBtn" aria-label="過去の買い出しリスト">履歴</button>
@@ -648,6 +654,14 @@ $("sheetBody").addEventListener("change", async e => {
 let lastList = null, lastHead = "", lastOther = "", lastRaw = "", checked = new Set();
 let currentListId = null, fromHistory = false, checkTimer = null;
 $("makeList").onclick = makeList;
+// 人数：前回リストを作ったときの人数を覚えておく
+const PPL_KEY = "kondate.ppl";
+function setPpl(n){
+  $("ppl").value = String(n);
+  document.querySelectorAll("[data-ppl]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.ppl === String(n))));
+}
+try { const v = Number(localStorage.getItem(PPL_KEY)); setPpl(v >= 1 && v <= 4 ? v : 2); } catch(e){ setPpl(2); }
+document.querySelector(".pplrow").addEventListener("click", e => { const b = e.target.closest("[data-ppl]"); if (b) setPpl(b.dataset.ppl); });
 $("histBtn").onclick = openHistory;
 
 // 保存済み（または今できた）リストを表示する
@@ -722,6 +736,7 @@ async function makeList(){
   }
   const extras = [...urlCounts.values()];
   const people = Number($("ppl").value);
+  try { localStorage.setItem(PPL_KEY, String(people)); } catch(e){}
   const span = selB ? `${label(selA.d, selA.s)} → ${label(selB.d, selB.s)}` : label(selA.d, selA.s);
   checked = new Set(); lastList = null; currentListId = null; fromHistory = false;
   showSheet("買い出しリスト");

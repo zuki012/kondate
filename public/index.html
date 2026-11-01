@@ -797,7 +797,7 @@ function householdsHTML(){
         <li class="ne hhops"><button class="backlink" data-hhreset="${esc(h.id)}">${hhState.editPass === h.id ? "やめる" : "合言葉を変える"}</button><button class="backlink del" data-hhdel="${esc(h.id)}">${hhState.confirmDel === h.id ? "本当に消す（献立も消えます）" : "このワークスペースを消す"}</button></li>`).join("")}</ul>` : `<p class="note">まだ友達のワークスペースはありません。</p>`}
       <div class="hhadd col"><input class="field" id="hhName" type="text" maxlength="30" placeholder="ワークスペース名（例：たなか家）">
         <div class="hhadd"><input class="field" id="hhPass" type="text" maxlength="40" autocomplete="off" placeholder="合言葉（空欄なら自動）"><button class="btn" id="hhAdd">追加</button></div></div>
-      <p class="note">合言葉は4文字以上で、わが家やほかのワークスペースと同じものは使えません。日本語も使えます。「コピー」でサイトのアドレスと合言葉をまとめてコピーできるので、LINEなどで送ってください。友達の献立は、わが家の献立やNotionとは混ざりません。</p>`;
+      <p class="note">合言葉は2文字以上で、わが家やほかのワークスペースと同じものは使えません。日本語も使えます。「コピー」でサイトのアドレスと合言葉をまとめてコピーできるので、LINEなどで送ってください。友達の献立は、わが家の献立やNotionとは混ざりません。</p>`;
   return `<div><p class="lbl">ワークスペース（友達との共有）</p>${body}</div>`;
 }
 function renderSettings(){

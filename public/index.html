@@ -193,6 +193,17 @@ body .toast.top{top:calc(16px + env(safe-area-inset-top,0px));bottom:auto}
   <p class="err" id="loginErr" hidden></p>
 </form>
 
+<form class="login" id="invite" hidden>
+  <h1>今週なに食べよ</h1>
+  <p class="note" id="inviteMsg">招待リンクを確認しています…</p>
+  <div id="inviteBody" hidden>
+    <input class="field" id="invitePass" type="text" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="合言葉を決める（2文字以上、日本語OK）">
+    <button class="btn" type="submit" style="margin-top:12px">この合言葉で始める</button>
+    <p class="note" style="margin-top:8px">決めた合言葉は、家族など一緒に使う人にだけ教えてください。ほかの人の合言葉と同じものは使えません。</p>
+  </div>
+  <p class="err" id="inviteErr" hidden></p>
+</form>
+
 <div class="wrap" id="app" hidden>
   <header class="bar" id="bar">
     <div class="titleline">
@@ -785,20 +796,27 @@ applyTheme(theme);
 
 let settingsOpen = false;
 // 友達との共有（持ち主だけ）
-let hhState = {loaded: false, ready: true, list: [], error: "", confirmDel: "", editPass: ""};
+let hhState = {loaded: false, ready: true, list: [], error: "", confirmDel: ""};
+const inviteUrl = code => `${location.origin}/?invite=${code}`;
+const fmtDay = iso => { const t = new Date(iso); return isNaN(t) ? "" : `${t.getMonth()+1}/${t.getDate()}`; };
 function householdsHTML(){
-  if (!HH.owner) return `<div><p class="lbl">この画面</p><p class="note">「${esc(HH.name)}」ワークスペースの献立表です。献立や買い出しリストは、同じ合言葉で入った人とだけ共有されます。</p></div>`;
+  if (!HH.owner) return `<div><p class="lbl">この画面</p><p class="note">「${esc(HH.name)}」ワークスペースの献立表です。献立や買い出しリストは、同じ合言葉で入った人とだけ共有されます。</p></div>
+    <div><p class="lbl">合言葉を変える</p>
+      <div class="hhadd"><input class="field" id="myNewPass" type="text" maxlength="40" autocomplete="off" placeholder="新しい合言葉（2文字以上）"><button class="btn" id="myPassSave">変更</button></div>
+      <p class="note" style="margin-top:6px">変えたら、一緒に使っている人にも新しい合言葉を伝えてください。</p></div>`;
   let body;
   if (!hhState.loaded) body = `<p class="note">読み込み中…</p>`;
   else if (hhState.error) body = `<p class="err">${esc(hhState.error)}</p>`;
   else if (!hhState.ready) body = `<p class="note">友達用のデータ置き場がまだつながっていません。</p>`;
-  else body = `${hhState.list.length ? `<ul class="current">${hhState.list.map(h => `<li class="hh"><span>${esc(h.name)}<small>合言葉：<b>${esc(h.pass)}</b></small></span>
-        <button class="rm nb" data-hhcopy="${esc(h.id)}">コピー</button></li>
-        ${hhState.editPass === h.id ? `<li class="ne"><input class="field" id="hhNewPass" type="text" maxlength="40" autocomplete="off" placeholder="新しい合言葉（空欄なら自動）"><button class="btn" data-hhsetpass="${esc(h.id)}">変更</button></li>` : ""}
-        <li class="ne hhops"><button class="backlink" data-hhreset="${esc(h.id)}">${hhState.editPass === h.id ? "やめる" : "合言葉を変える"}</button><button class="backlink del" data-hhdel="${esc(h.id)}">${hhState.confirmDel === h.id ? "本当に消す（献立も消えます）" : "このワークスペースを消す"}</button></li>`).join("")}</ul>` : `<p class="note">まだ友達のワークスペースはありません。</p>`}
-      <div class="hhadd col"><input class="field" id="hhName" type="text" maxlength="30" placeholder="ワークスペース名（例：たなか家）">
-        <div class="hhadd"><input class="field" id="hhPass" type="text" maxlength="40" autocomplete="off" placeholder="合言葉（空欄なら自動）"><button class="btn" id="hhAdd">追加</button></div></div>
-      <p class="note">合言葉は2文字以上で、わが家やほかのワークスペースと同じものは使えません。日本語も使えます。「コピー」でサイトのアドレスと合言葉をまとめてコピーできるので、LINEなどで送ってください。友達の献立は、わが家の献立やNotionとは混ざりません。</p>`;
+  else body = `${hhState.list.length ? `<ul class="current">${hhState.list.map(h => {
+      const status = h.invite ? (h.active ? `合言葉を決め直す招待中（${fmtDay(h.inviteExpires)}まで）` : `招待中・まだ使われていません（${fmtDay(h.inviteExpires)}まで）`) : (h.active ? "利用中" : "招待リンクの期限切れ");
+      return `<li class="hh"><span>${esc(h.name)}<small>${esc(status)}</small></span>
+        ${h.invite ? `<button class="rm nb" data-hhcopy="${esc(h.id)}">招待リンクをコピー</button>` : ""}</li>
+        <li class="ne hhops"><button class="backlink" data-hhinvite="${esc(h.id)}">${h.active ? "合言葉を忘れたとき：招待リンクを作り直す" : "招待リンクを作り直す"}</button></li>
+        <li class="ne hhops"><button class="backlink del" data-hhdel="${esc(h.id)}">${hhState.confirmDel === h.id ? "本当に消す（献立も消えます）" : "このワークスペースを消す"}</button></li>`;
+    }).join("")}</ul>` : `<p class="note">まだ友達のワークスペースはありません。</p>`}
+      <div class="hhadd"><input class="field" id="hhName" type="text" maxlength="30" placeholder="名前（例：たなか家）"><button class="btn" id="hhAdd">追加</button></div>
+      <p class="note">追加すると招待リンクができます。「招待リンクをコピー」でLINEなどに送ってください。友達がリンクを開いて、自分で合言葉を決めます（リンクの期限は7日、1回だけ使えます）。友達の合言葉はこの画面には出ません。友達の献立は、わが家の献立やNotionとは混ざりません。</p>`;
   return `<div><p class="lbl">ワークスペース（友達との共有）</p>${body}</div>`;
 }
 function renderSettings(){
@@ -814,7 +832,7 @@ function renderSettings(){
 function logout(){
   clearPass(); closeSheet();
   cells.clear(); HH = {name: "", owner: false};
-  hhState = {loaded: false, ready: true, list: [], error: "", confirmDel: "", editPass: ""};
+  hhState = {loaded: false, ready: true, list: [], error: "", confirmDel: ""};
   $("pass").value = ""; render();
   showLogin("");
   toast("ログアウトしました");
@@ -836,7 +854,7 @@ async function hhPost(body){
 }
 $("gearBtn").addEventListener("click", () => {
   openKey = null;
-  showSheet("設定"); settingsOpen = true; hhState.confirmDel = ""; hhState.editPass = ""; renderSettings(); loadHouseholds();
+  showSheet("設定"); settingsOpen = true; hhState.confirmDel = ""; renderSettings(); loadHouseholds();
 });
 $("sheetBody").addEventListener("click", async e => {
   if (!settingsOpen) return;
@@ -845,27 +863,29 @@ $("sheetBody").addEventListener("click", async e => {
   if (t.id === "hhAdd"){
     const name = $("hhName").value.trim(); if (!name){ toast("ワークスペース名を入れてください"); return; }
     t.disabled = true;
-    const r = await hhPost({name, pass: $("hhPass").value.trim()});
-    if (r){ toast(`「${r.household.name}」を追加しました`); await loadHouseholds(); } else t.disabled = false;
+    const r = await hhPost({name});
+    if (r){ toast(`「${r.household.name}」を追加しました。招待リンクをコピーして送ってください`); await loadHouseholds(); } else t.disabled = false;
     return;
+  }
+  if (t.id === "myPassSave"){
+    const v = $("myNewPass").value.trim(); if (!v){ toast("新しい合言葉を入れてください"); return; }
+    t.disabled = true;
+    const r = await hhPost({changePass: v});
+    if (r){ setPass(v); $("myNewPass").value = ""; toast("合言葉を変えました"); }
+    t.disabled = false; return;
   }
   const cp = t.closest("[data-hhcopy]");
   if (cp){
-    const h = hhState.list.find(x => x.id === cp.dataset.hhcopy); if (!h) return;
-    const text = `献立と買い出しのサイト「今週なに食べよ」に招待します。\n${location.origin}\n合言葉：${h.pass}\n（家族以外には教えないでね）`;
-    try { await navigator.clipboard.writeText(text); toast("アドレスと合言葉をコピーしました"); } catch(_){ toast("コピーできませんでした"); }
+    const h = hhState.list.find(x => x.id === cp.dataset.hhcopy); if (!h || !h.invite) return;
+    const text = `献立と買い出しのサイト「今週なに食べよ」に招待します。\n下のリンクを開いて、合言葉を決めてね（${fmtDay(h.inviteExpires)}まで・1回だけ使えます）\n${inviteUrl(h.invite)}`;
+    try { await navigator.clipboard.writeText(text); toast("招待リンクをコピーしました"); } catch(_){ toast("コピーできませんでした"); }
     return;
   }
-  const rs = t.closest("[data-hhreset]");
-  if (rs){
-    hhState.editPass = hhState.editPass === rs.dataset.hhreset ? "" : rs.dataset.hhreset;
-    renderSettings(); $("hhNewPass")?.focus(); return;
-  }
-  const sp = t.closest("[data-hhsetpass]");
-  if (sp){
-    sp.disabled = true;
-    const r = await hhPost({id: sp.dataset.hhsetpass, reset: true, pass: $("hhNewPass").value.trim()});
-    if (r){ hhState.editPass = ""; toast("合言葉を変えました。前の合言葉では入れません"); await loadHouseholds(); } else sp.disabled = false;
+  const iv = t.closest("[data-hhinvite]");
+  if (iv){
+    iv.disabled = true;
+    const r = await hhPost({id: iv.dataset.hhinvite, invite: true});
+    if (r){ toast("新しい招待リンクを作りました。前のリンクは使えません"); await loadHouseholds(); } else iv.disabled = false;
     return;
   }
   const dl = t.closest("[data-hhdel]");
@@ -890,6 +910,41 @@ function toast(msg){ const t = $("toast"); t.textContent = msg; t.hidden = false
 /* ---------- 起動 ---------- */
 const setBarH = () => document.documentElement.style.setProperty("--barh", $("bar").offsetHeight + "px");
 let started = false;
+// 招待リンク（?invite=…）で開かれたときは、合言葉を決める画面を出す
+const inviteCode = new URLSearchParams(location.search).get("invite");
+async function showInvite(){
+  $("app").hidden = true; $("login").hidden = true; $("invite").hidden = false;
+  $("invite").querySelector("h1").textContent = "今週なに食べよ"; // 招待の画面ではサイト名をそのまま出す
+  try {
+    const res = await fetch(`/api/households?invite=${encodeURIComponent(inviteCode)}`);
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.error || "この招待リンクは使えません");
+    $("inviteMsg").textContent = `「${j.name}」ワークスペースに招待されています。これから使う合言葉を決めてください。`;
+    $("inviteBody").hidden = false; $("invitePass").focus();
+  } catch(e){
+    $("inviteMsg").textContent = e.message;
+    $("inviteMsg").insertAdjacentHTML("afterend", `<button class="btn ghost" type="button" id="toLogin" style="margin-top:12px">合言葉を持っている人はこちら</button>`);
+  }
+}
+$("invite").addEventListener("click", e => {
+  if (e.target.id === "toLogin"){ history.replaceState(null, "", location.pathname); $("invite").hidden = true; start(); }
+});
+$("invite").addEventListener("submit", async e => {
+  e.preventDefault();
+  const pass = $("invitePass").value.trim(), err = $("inviteErr");
+  err.hidden = true;
+  if (pass.length < 2){ err.hidden = false; err.textContent = "合言葉は2文字以上にしてください"; return; }
+  try {
+    const res = await fetch("/api/households", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({invite: inviteCode, pass})});
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.error || "登録できませんでした");
+    setPass(pass);
+    history.replaceState(null, "", location.pathname);
+    $("invite").hidden = true;
+    start(); toast(`「${j.name}」ワークスペースを始めました`);
+  } catch(e2){ err.hidden = false; err.textContent = e2.message; }
+});
+
 async function start(){
   $("login").hidden = true; $("app").hidden = false;
   setBarH(); render();
@@ -902,7 +957,7 @@ async function start(){
     document.addEventListener("visibilitychange", () => { if (!document.hidden && loggedIn()) loadPlan(); });
   }
 }
-start();
+if (inviteCode) showInvite(); else start();
 })();
 </script>
 </body>

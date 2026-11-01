@@ -23,7 +23,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "操作が指定されていません" });
       }
       const name = String(body.name || "").trim();
-      if (!name) return res.status(400).json({ error: "世帯の名前を入れてください" });
+      if (!name) return res.status(400).json({ error: "ワークスペース名を入れてください" });
       return res.status(200).json({ household: await createHousehold(name, String(body.pass || "")) });
     }
     res.status(405).json({ error: "許可されていない操作です" });

@@ -261,6 +261,7 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
 const PASS_KEY = "kondate.pass";
 const getPass = () => { try { return localStorage.getItem(PASS_KEY) || ""; } catch(e){ return ""; } };
 const setPass = v => { try { localStorage.setItem(PASS_KEY, v); } catch(e){} };
+const clearPass = () => { try { localStorage.removeItem(PASS_KEY); } catch(e){} };
 class AuthError extends Error {}
 async function api(path, opts = {}){
   const res = await fetch(path, {
@@ -805,7 +806,18 @@ function renderSettings(){
     <div><p class="lbl">画面の明るさ</p>
       <div class="seg three" role="group" aria-label="画面の明るさ">${THEMES.map(([k, l]) => `<button data-theme-opt="${k}" aria-pressed="${k === theme}">${l}</button>`).join("")}</div>
       <p class="note" style="margin-top:6px">「自動」はスマホの設定に合わせます。この端末だけの設定です。</p></div>
-    ${householdsHTML()}`;
+    ${householdsHTML()}
+    <div><p class="lbl">ログアウト</p>
+      <button class="btn ghost" id="logoutBtn">ログアウト（合言葉を入れ直す）</button>
+      <p class="note" style="margin-top:6px">この端末が覚えている合言葉を消して、合言葉の入力画面に戻ります。別のワークスペースに入り直すときに使います。</p></div>`;
+}
+function logout(){
+  clearPass(); closeSheet();
+  cells.clear(); HH = {name: "", owner: false};
+  hhState = {loaded: false, ready: true, list: [], error: "", confirmDel: "", editPass: ""};
+  $("pass").value = ""; render();
+  showLogin("");
+  toast("ログアウトしました");
 }
 async function loadHouseholds(){
   if (!HH.owner) return;
@@ -829,6 +841,7 @@ $("gearBtn").addEventListener("click", () => {
 $("sheetBody").addEventListener("click", async e => {
   if (!settingsOpen) return;
   const t = e.target;
+  if (t.id === "logoutBtn"){ logout(); return; }
   if (t.id === "hhAdd"){
     const name = $("hhName").value.trim(); if (!name){ toast("ワークスペース名を入れてください"); return; }
     t.disabled = true;
@@ -884,8 +897,9 @@ async function start(){
   if (!started){
     started = true;
     new ResizeObserver(setBarH).observe($("bar"));
-    setInterval(() => { if (!document.hidden && $("sheet").hidden) loadPlan(); }, 60000);
-    document.addEventListener("visibilitychange", () => { if (!document.hidden) loadPlan(); });
+    const loggedIn = () => $("login").hidden;
+    setInterval(() => { if (!document.hidden && $("sheet").hidden && loggedIn()) loadPlan(); }, 60000);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden && loggedIn()) loadPlan(); });
   }
 }
 start();

@@ -127,6 +127,8 @@ textarea.field{resize:vertical;line-height:1.5}
 .hhops{justify-content:flex-end;gap:16px!important;margin-top:-2px}
 .backlink.del{color:var(--danger)}
 .hhadd{display:flex;gap:8px;margin-top:8px}
+.hhadd.col{flex-direction:column}
+.hhadd.col>.hhadd{margin-top:0}
 .hhadd .field{flex:1;min-width:0}
 .hhadd .btn{width:auto;flex:none;padding-left:16px;padding-right:16px}
 .empty{color:var(--muted);font-size:13px;margin:0}
@@ -782,7 +784,7 @@ applyTheme(theme);
 
 let settingsOpen = false;
 // 友達との共有（持ち主だけ）
-let hhState = {loaded: false, ready: true, list: [], error: "", confirmDel: ""};
+let hhState = {loaded: false, ready: true, list: [], error: "", confirmDel: "", editPass: ""};
 function householdsHTML(){
   if (!HH.owner) return `<div><p class="lbl">この画面</p><p class="note">「${esc(HH.name)}」の献立表です。献立や買い出しリストは、同じ合言葉で入った人とだけ共有されます。</p></div>`;
   let body;
@@ -791,9 +793,11 @@ function householdsHTML(){
   else if (!hhState.ready) body = `<p class="note">友達用のデータ置き場がまだつながっていません。</p>`;
   else body = `${hhState.list.length ? `<ul class="current">${hhState.list.map(h => `<li class="hh"><span>${esc(h.name)}<small>合言葉：<b>${esc(h.pass)}</b></small></span>
         <button class="rm nb" data-hhcopy="${esc(h.id)}">コピー</button></li>
-        <li class="ne hhops"><button class="backlink" data-hhreset="${esc(h.id)}">合言葉を作り直す</button><button class="backlink del" data-hhdel="${esc(h.id)}">${hhState.confirmDel === h.id ? "本当に消す（献立も消えます）" : "この世帯を消す"}</button></li>`).join("")}</ul>` : `<p class="note">まだ友達の世帯はありません。</p>`}
-      <div class="hhadd"><input class="field" id="hhName" type="text" maxlength="30" placeholder="世帯の名前（例：たなか家）"><button class="btn" id="hhAdd">追加</button></div>
-      <p class="note">追加すると合言葉が発行されます。「コピー」でサイトのアドレスと合言葉をまとめてコピーできるので、LINEなどで送ってください。友達の献立は、わが家の献立やNotionとは混ざりません。</p>`;
+        ${hhState.editPass === h.id ? `<li class="ne"><input class="field" id="hhNewPass" type="text" maxlength="40" autocomplete="off" placeholder="新しい合言葉（空欄なら自動）"><button class="btn" data-hhsetpass="${esc(h.id)}">変更</button></li>` : ""}
+        <li class="ne hhops"><button class="backlink" data-hhreset="${esc(h.id)}">${hhState.editPass === h.id ? "やめる" : "合言葉を変える"}</button><button class="backlink del" data-hhdel="${esc(h.id)}">${hhState.confirmDel === h.id ? "本当に消す（献立も消えます）" : "この世帯を消す"}</button></li>`).join("")}</ul>` : `<p class="note">まだ友達の世帯はありません。</p>`}
+      <div class="hhadd col"><input class="field" id="hhName" type="text" maxlength="30" placeholder="世帯の名前（例：たなか家）">
+        <div class="hhadd"><input class="field" id="hhPass" type="text" maxlength="40" autocomplete="off" placeholder="合言葉（空欄なら自動）"><button class="btn" id="hhAdd">追加</button></div></div>
+      <p class="note">合言葉は4文字以上で、わが家やほかの世帯と同じものは使えません。日本語も使えます。「コピー」でサイトのアドレスと合言葉をまとめてコピーできるので、LINEなどで送ってください。友達の献立は、わが家の献立やNotionとは混ざりません。</p>`;
   return `<div><p class="lbl">友達との共有</p>${body}</div>`;
 }
 function renderSettings(){
@@ -820,7 +824,7 @@ async function hhPost(body){
 }
 $("gearBtn").addEventListener("click", () => {
   openKey = null;
-  showSheet("設定"); settingsOpen = true; hhState.confirmDel = ""; renderSettings(); loadHouseholds();
+  showSheet("設定"); settingsOpen = true; hhState.confirmDel = ""; hhState.editPass = ""; renderSettings(); loadHouseholds();
 });
 $("sheetBody").addEventListener("click", async e => {
   if (!settingsOpen) return;
@@ -828,7 +832,7 @@ $("sheetBody").addEventListener("click", async e => {
   if (t.id === "hhAdd"){
     const name = $("hhName").value.trim(); if (!name){ toast("世帯の名前を入れてください"); return; }
     t.disabled = true;
-    const r = await hhPost({name});
+    const r = await hhPost({name, pass: $("hhPass").value.trim()});
     if (r){ toast(`「${r.household.name}」を追加しました`); await loadHouseholds(); } else t.disabled = false;
     return;
   }
@@ -841,8 +845,14 @@ $("sheetBody").addEventListener("click", async e => {
   }
   const rs = t.closest("[data-hhreset]");
   if (rs){
-    const r = await hhPost({id: rs.dataset.hhreset, reset: true});
-    if (r){ toast("合言葉を作り直しました。前の合言葉では入れません"); await loadHouseholds(); }
+    hhState.editPass = hhState.editPass === rs.dataset.hhreset ? "" : rs.dataset.hhreset;
+    renderSettings(); $("hhNewPass")?.focus(); return;
+  }
+  const sp = t.closest("[data-hhsetpass]");
+  if (sp){
+    sp.disabled = true;
+    const r = await hhPost({id: sp.dataset.hhsetpass, reset: true, pass: $("hhNewPass").value.trim()});
+    if (r){ hhState.editPass = ""; toast("合言葉を変えました。前の合言葉では入れません"); await loadHouseholds(); } else sp.disabled = false;
     return;
   }
   const dl = t.closest("[data-hhdel]");

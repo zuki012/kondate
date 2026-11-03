@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     const fromBeetto = (Array.isArray(beetto) ? beetto : []).slice(0, 40)
       .map((e) => ({ r: BT.get(String(e?.id || "")), count: clampCount(e?.count), note: noteOf(e) }))
       .filter((e) => e.r)
-      .map(({ r, count, note }) => ({ name: r.name, base: `${r.base}（1回の登録＝1人分）`, ingredients: r.ingredients, count, note, servings: r.servings || 1 }));
+      .map(({ r, count, note }) => ({ name: r.name, base: r.base, ingredients: r.ingredients, count, note, servings: r.servings || 1 }));
     // メモ（献立表に手で書いたもの）も、食材や料理名としてAIに読ませる
     const memoList = (Array.isArray(memos) ? memos : []).slice(0, 30)
       .map((m) => ({ name: String(m?.name || "").trim().slice(0, 100), count: clampCount(m?.count) }))
@@ -104,6 +104,7 @@ export default async function handler(req, res) {
     const recipesOut = recipes.map((r, i) => ({
       name: r.name, base: r.base, ingredients: r.ingredients, count: r.count, note: r.note || "",
       factor: Math.round(scaleOf(r, n).factor * (rParsed[i]?.noteScale || 1) * 100) / 100,
+      servings: scaleOf(r, n).servings, guessed: scaleOf(r, n).guessed,
     }));
     // あとで見返せるように、できたリストをNotionの履歴に残す（失敗してもリストは返す）
     const span = String(title || "").slice(0, 100);

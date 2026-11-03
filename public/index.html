@@ -237,7 +237,7 @@ body .toast.top{top:calc(16px + env(safe-area-inset-top,0px));bottom:auto}
       <button id="m-shop" aria-pressed="false">買い出し</button>
       <button id="m-view" aria-pressed="false">レシピ</button>
     </div>
-    <p class="hint" id="hint">マスをタップすると、その食事にレシピを登録できます。</p>
+    <p class="hint" id="hint">マスをタップすると、その食事にレシピを登録できます（1つ登録＝1人分）。</p>
   </header>
   <div class="grid" id="grid" aria-label="献立表"></div>
 </div>
@@ -432,7 +432,7 @@ function setMode(m){
   $("m-recipe").setAttribute("aria-pressed", m === "recipe");
   $("m-shop").setAttribute("aria-pressed", m === "shop");
   $("m-view").setAttribute("aria-pressed", m === "view");
-  $("hint").textContent = m === "recipe" ? "マスをタップすると、その食事にレシピを登録できます。"
+  $("hint").textContent = m === "recipe" ? "マスをタップすると、その食事にレシピを登録できます（1つ登録＝1人分）。"
                         : m === "view" ? "マスをタップすると、その食事のレシピ（材料と作り方）が見られます。"
                                        : "買い出しの対象にする最初のマスと最後のマスを順にタップします。";
   $("shopbar").hidden = m !== "shop";
@@ -583,7 +583,7 @@ function resultsHTML(list){
 function btResultsHTML(list){
   if (!list.length) return `<li><p class="empty">見つかりませんでした。ことばを変えるか、絞り込みを「すべて」に戻してみてください。</p></li>`;
   return `<li><p class="note">${list.length}品</p></li>` + list.map(r => `<li><button data-btadd="${esc(r.id)}" data-name="${esc(r.name)}">
-    <span class="nm">${esc(r.name)}<span class="meta">${esc(btPhaseLabel(r.phase))}・${esc(r.meal)}・1回の登録で1人分</span></span>
+    <span class="nm">${esc(r.name)}<span class="meta">${esc(btPhaseLabel(r.phase))}・${esc(r.meal)}</span></span>
     <span class="plus">＋追加</span></button></li>`).join("");
 }
 function runBtSearch(){
@@ -773,7 +773,7 @@ function showListData(d, id, checkedKeys){
     + `<p class="note">${esc(d.span || "")}／${esc(d.people || "")}人分${parts ? "／" + parts : ""}${d.createdLabel ? `<br>${esc(d.createdLabel)}に作成` : ""}</p>`;
   const failed = Array.isArray(d.failed) ? d.failed : [];
   lastOther = failed.length ? `<p class="err">次のページは材料を読み取れなかったため、リストに入っていません：${failed.map(esc).join("、")}。献立のマスで一度外し、「URLを貼る」で材料を貼り付けて登録し直すと計算に入ります。</p>` : "";
-  lastRaw = (recipes.length || memos.length) ? `<details><summary>レシピごとの材料（元の表記）とメモ</summary>${recipes.map(r => `<h4>${esc(r.name)}${r.count>1?`（${r.count}回分）`:""}${r.note ? `<small>（指示：${esc(r.note)}）</small>` : ""}</h4><pre>${esc((r.base ? "元のレシピ: " + r.base : "") + (r.factor ? `　→ 材料×${r.factor}` : "") + ((r.base || r.factor) ? "\n" : ""))}${esc(r.ingredients || "材料の記載なし")}</pre>`).join("")}${memos.length ? `<h4>メモ</h4><pre>${esc(memos.map(m => m.name + (m.count > 1 ? `（${m.count}回分）` : "")).join("\n"))}</pre>` : ""}</details>` : "";
+  lastRaw = (recipes.length || memos.length) ? `<details><summary>レシピごとの材料（元の表記）とメモ</summary>${recipes.map(r => `<h4>${esc(r.name)}${r.count>1?`（${r.count}回分）`:""}${r.note ? `<small>（指示：${esc(r.note)}）</small>` : ""}</h4><pre>${esc((r.servings ? `元のレシピ: ${r.servings}人分${r.guessed ? "（書いていないので2人分とみなしました）" : ""}` : (r.base ? "元のレシピ: " + r.base : "")) + (r.factor ? `　→ 材料×${r.factor}` : "") + ((r.base || r.factor || r.servings) ? "\n" : ""))}${esc(r.ingredients || "材料の記載なし")}</pre>`).join("")}${memos.length ? `<h4>メモ</h4><pre>${esc(memos.map(m => m.name + (m.count > 1 ? `（${m.count}回分）` : "")).join("\n"))}</pre>` : ""}</details>` : "";
   renderList();
 }
 const fmtCreated = iso => { const t = new Date(iso); if (isNaN(t)) return ""; return `${t.getMonth()+1}/${t.getDate()}（${"日月火水木金土"[t.getDay()]}）${String(t.getHours()).padStart(2,"0")}:${String(t.getMinutes()).padStart(2,"0")}`; };

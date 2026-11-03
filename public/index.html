@@ -472,7 +472,7 @@ function viewBodyHTML(it, data){
   if (it.type === "beetto"){
     if (!data) return `<p class="notes">読み込み中…</p>`;
     if (data.error) return `<p class="err">${esc(data.error)}</p>`;
-    return `<h4>材料（${esc(data.base || "")}）</h4><pre>${esc(data.ingredients || "")}</pre>
+    return `<h4>材料（${esc(data.base || "")}${data.servings > 1 ? `・1人分はこの1/${data.servings}` : ""}）</h4><pre>${esc(data.ingredients || "")}</pre>
       <h4>作り方</h4><ol>${(data.steps || []).map(x => `<li>${esc(x)}</li>`).join("")}</ol>
       ${(data.notes || []).length ? `<div class="notes">${data.notes.map(x => `<p>※${esc(x)}</p>`).join("")}</div>` : ""}`;
   }
@@ -583,7 +583,7 @@ function resultsHTML(list){
 function btResultsHTML(list){
   if (!list.length) return `<li><p class="empty">見つかりませんでした。ことばを変えるか、絞り込みを「すべて」に戻してみてください。</p></li>`;
   return `<li><p class="note">${list.length}品</p></li>` + list.map(r => `<li><button data-btadd="${esc(r.id)}" data-name="${esc(r.name)}">
-    <span class="nm">${esc(r.name)}<span class="meta">${esc(btPhaseLabel(r.phase))}・${esc(r.meal)}・${esc(r.base)}</span></span>
+    <span class="nm">${esc(r.name)}<span class="meta">${esc(btPhaseLabel(r.phase))}・${esc(r.meal)}・1回の登録で1人分</span></span>
     <span class="plus">＋追加</span></button></li>`).join("");
 }
 function runBtSearch(){

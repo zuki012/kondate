@@ -773,7 +773,7 @@ function showListData(d, id, checkedKeys){
     + `<p class="note">${esc(d.span || "")}／${esc(d.people || "")}人分${parts ? "／" + parts : ""}${d.createdLabel ? `<br>${esc(d.createdLabel)}に作成` : ""}</p>`;
   const failed = Array.isArray(d.failed) ? d.failed : [];
   lastOther = failed.length ? `<p class="err">次のページは材料を読み取れなかったため、リストに入っていません：${failed.map(esc).join("、")}。献立のマスで一度外し、「URLを貼る」で材料を貼り付けて登録し直すと計算に入ります。</p>` : "";
-  lastRaw = (recipes.length || memos.length) ? `<details><summary>レシピごとの材料（元の表記）とメモ</summary>${recipes.map(r => `<h4>${esc(r.name)}${r.count>1?`（${r.count}回分）`:""}${r.note ? `<small>（指示：${esc(r.note)}）</small>` : ""}</h4><pre>${esc(r.base ? "基準: " + r.base + "\n" : "")}${esc(r.ingredients || "材料の記載なし")}</pre>`).join("")}${memos.length ? `<h4>メモ</h4><pre>${esc(memos.map(m => m.name + (m.count > 1 ? `（${m.count}回分）` : "")).join("\n"))}</pre>` : ""}</details>` : "";
+  lastRaw = (recipes.length || memos.length) ? `<details><summary>レシピごとの材料（元の表記）とメモ</summary>${recipes.map(r => `<h4>${esc(r.name)}${r.count>1?`（${r.count}回分）`:""}${r.note ? `<small>（指示：${esc(r.note)}）</small>` : ""}</h4><pre>${esc((r.base ? "元のレシピ: " + r.base : "") + (r.factor ? `　→ 材料×${r.factor}` : "") + ((r.base || r.factor) ? "\n" : ""))}${esc(r.ingredients || "材料の記載なし")}</pre>`).join("")}${memos.length ? `<h4>メモ</h4><pre>${esc(memos.map(m => m.name + (m.count > 1 ? `（${m.count}回分）` : "")).join("\n"))}</pre>` : ""}</details>` : "";
   renderList();
 }
 const fmtCreated = iso => { const t = new Date(iso); if (isNaN(t)) return ""; return `${t.getMonth()+1}/${t.getDate()}（${"日月火水木金土"[t.getDay()]}）${String(t.getHours()).padStart(2,"0")}:${String(t.getMinutes()).padStart(2,"0")}`; };

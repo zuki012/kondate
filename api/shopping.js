@@ -3,7 +3,7 @@
 //  → Notionのレシピと、URLで登録したレシピの材料を集め、Claude APIで合算した買い出しリストを返す
 import { getRecipeDetail } from "../lib/notion.js";
 import { saveShoppingList } from "../lib/store.js";
-import { buildPrompt, askClaude } from "../lib/shopping.js";
+import { buildPrompt, askClaude, scaleOf } from "../lib/shopping.js";
 import { readRecipePage } from "../lib/webrecipe.js";
 import { BEETTO } from "../lib/beetto-data.js";
 import { auth, fail, readJson } from "../lib/http.js";
@@ -58,7 +58,7 @@ export default async function handler(req, res) {
     if (!recipes.length && !memoList.length) return res.status(200).json({ list: { buy: [], check: [] }, recipes: [], failed });
 
     const result = await askClaude(buildPrompt(recipes, n, memoList));
-    const recipesOut = recipes.map((r) => ({ name: r.name, base: r.base, ingredients: r.ingredients, count: r.count, note: r.note || "" }));
+    const recipesOut = recipes.map((r) => ({ name: r.name, base: r.base, ingredients: r.ingredients, count: r.count, note: r.note || "", factor: scaleOf(r, n).factor }));
     // あとで見返せるように、できたリストをNotionの履歴に残す（失敗してもリストは返す）
     const span = String(title || "").slice(0, 100);
     let listId = null;

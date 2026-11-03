@@ -166,6 +166,14 @@ textarea.field{resize:vertical;line-height:1.5}
 .results .nm{font-weight:500;min-width:0;overflow-wrap:anywhere}
 .results .meta{display:block;font-size:11px;color:var(--muted);font-weight:400}
 .results .plus{flex:none;color:var(--mode);font-weight:700;font-size:13px;white-space:nowrap}
+.results li .rrow{display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--line);padding:6px 2px}
+.results li .rrow .nm{flex:1}
+.results li .rrow button{width:auto;flex:none;border:0;border-radius:8px;padding:8px 8px;background:transparent;font-weight:700;font-size:13px;white-space:nowrap;cursor:pointer}
+.results li .rrow button.vbtn{color:var(--muted);border:1px solid var(--line)}
+.results li .rrow button.vbtn[aria-expanded="true"]{color:var(--mode);border-color:var(--mode)}
+.results li .rrow button.plus{color:var(--mode)}
+.results li .rdetail{padding:8px 4px 12px;border-bottom:1px solid var(--line)}
+.results li .rdetail.rv{border-radius:0;border-width:0 0 1px 0}
 .note{font-size:12px;color:var(--muted);margin:0;line-height:1.6}
 
 .status{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}
@@ -573,18 +581,42 @@ function runSearch(){
   }, query ? 300 : 0);
 }
 
+// 検索結果の1行：「レシピ」で中身をその場で開く／「＋追加」で献立に入れる
+const openDetails = new Set();
+function resultRow(type, r, meta, addAttr){
+  const key = type + ":" + r.id, open = openDetails.has(key);
+  return `<li><div class="rrow"><span class="nm">${esc(r.name)}<span class="meta">${esc(meta)}</span></span>
+    <button class="vbtn" data-rview="${esc(key)}" aria-expanded="${open}">レシピ</button>
+    <button class="plus" ${addAttr}="${esc(r.id)}" data-name="${esc(r.name)}">＋追加</button></div>
+    ${open ? `<div class="rdetail rv">${viewBodyHTML({type, id: r.id, name: r.name}, viewCache.get(key))}</div>` : ""}</li>`;
+}
+async function toggleDetail(key){
+  if (openDetails.has(key)) openDetails.delete(key); else openDetails.add(key);
+  refreshResults();
+  if (!openDetails.has(key) || viewCache.has(key)) return;
+  const [type, id] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
+  try {
+    const path = type === "recipe" ? `/api/recipes?id=${encodeURIComponent(id)}` : `/api/beetto?id=${encodeURIComponent(id)}`;
+    const { recipe } = await api(path);
+    viewCache.set(key, recipe);
+  } catch(e){
+    if (e instanceof AuthError) return showLogin(e.message);
+    viewCache.set(key, {error: "読み込めませんでした：" + e.message});
+  }
+  refreshResults();
+}
+function refreshResults(){
+  const a = $("results"); if (a) a.innerHTML = resultsHTML(lastResults);
+  const b = $("btresults"); if (b) b.innerHTML = btResultsHTML(btResults);
+}
 function resultsHTML(list){
   if (!list.length) return `<li><p class="empty">見つかりませんでした。別のことばで探すか、「メモ」に書いて登録できます。</p></li>`;
-  return list.map(r => `<li><button data-add="${esc(r.id)}" data-name="${esc(r.name)}">
-    <span class="nm">${esc(r.name)}<span class="meta">${[r.genre, r.category, r.time].filter(Boolean).map(esc).join("・")}</span></span>
-    <span class="plus">＋追加</span></button></li>`).join("");
+  return list.map(r => resultRow("recipe", r, [r.genre, r.category, r.time].filter(Boolean).join("・"), "data-add")).join("");
 }
 
 function btResultsHTML(list){
   if (!list.length) return `<li><p class="empty">見つかりませんでした。ことばを変えるか、絞り込みを「すべて」に戻してみてください。</p></li>`;
-  return `<li><p class="note">${list.length}品</p></li>` + list.map(r => `<li><button data-btadd="${esc(r.id)}" data-name="${esc(r.name)}">
-    <span class="nm">${esc(r.name)}<span class="meta">${esc(btPhaseLabel(r.phase))}・${esc(r.meal)}</span></span>
-    <span class="plus">＋追加</span></button></li>`).join("");
+  return `<li><p class="note">${list.length}品</p></li>` + list.map(r => resultRow("beetto", r, `${btPhaseLabel(r.phase)}・${r.meal}`, "data-btadd")).join("");
 }
 function runBtSearch(){
   clearTimeout(btTimer);
@@ -674,6 +706,8 @@ $("sheetBody").addEventListener("click", e => {
   if (bp){ btPhase = Number(bp.dataset.btphase); renderRecipeSheet(); runBtSearch(); return; }
   const bm = t.closest("[data-btmeal]");
   if (bm){ btMeal = bm.dataset.btmeal; renderRecipeSheet(); runBtSearch(); return; }
+  const rv = t.closest("[data-rview]");
+  if (rv){ toggleDetail(rv.dataset.rview); return; }
   const ba = t.closest("[data-btadd]");
   if (ba){
     items.push({type:"beetto", id: ba.dataset.btadd, name: ba.dataset.name});

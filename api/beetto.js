@@ -1,4 +1,5 @@
 // GET /api/beetto?q=&phase=&meal= → beettoのレシピを探す（料理名と材料のどちらでも当たる）
+// GET /api/beetto?id=…             → 1件の中身（材料と作り方）
 import { BEETTO } from "../lib/beetto-data.js";
 import { auth } from "../lib/http.js";
 
@@ -9,6 +10,12 @@ const INDEX = BEETTO.map((r) => ({ r, hay: fold(r.name + "\n" + r.ingredients) }
 
 export default async function handler(req, res) {
   if (!(await auth(req, res))) return;
+  // ?id=… なら1件の中身（材料と作り方）
+  if (req.query?.id) {
+    const r = BEETTO.find((x) => x.id === String(req.query.id));
+    if (!r) return res.status(404).json({ error: "そのレシピは見つかりません" });
+    return res.status(200).json({ recipe: r });
+  }
   const words = fold(req.query?.q || "").split(/\s+/).filter(Boolean).slice(0, 5);
   const phase = Number(req.query?.phase) || 0;
   const meal = ["朝", "昼", "夜"].includes(req.query?.meal) ? req.query.meal : "";

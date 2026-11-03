@@ -14,6 +14,7 @@
   --paper:#F4F5EF; --surface:#FFFFFF; --ink:#23291F; --muted:#6A7165; --line:#DCDFD3;
   --accent:#2E6B4C; --accent-ink:#FFFFFF; --accent-soft:#E2EDE5;
   --shop:#9A6A0E; --shop-ink:#FFFFFF; --shop-soft:#F5EBD3;
+  --view:#2F5F86; --view-ink:#FFFFFF; --view-soft:#E1EAF2;
   --sat:#2F5DA6; --sun:#B23F38; --danger:#B23F38;
   --shadow:0 -8px 30px rgba(30,40,30,.14);
   --f-display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
@@ -24,11 +25,13 @@
   --paper:#131612; --surface:#1B1F1A; --ink:#E6E9E1; --muted:#9BA295; --line:#2C3229;
   --accent:#86C9A2; --accent-ink:#0F1A13; --accent-soft:#1E3226;
   --shop:#E3B14E; --shop-ink:#1E1606; --shop-soft:#372C13;
+  --view:#8DB8DE; --view-ink:#0E1A26; --view-soft:#1C2B38;
   --sat:#93B4EE; --sun:#F08F87; --danger:#F08F87; --shadow:0 -8px 30px rgba(0,0,0,.5); color-scheme:dark}}
 :root[data-theme="dark"]{
   --paper:#131612; --surface:#1B1F1A; --ink:#E6E9E1; --muted:#9BA295; --line:#2C3229;
   --accent:#86C9A2; --accent-ink:#0F1A13; --accent-soft:#1E3226;
   --shop:#E3B14E; --shop-ink:#1E1606; --shop-soft:#372C13;
+  --view:#8DB8DE; --view-ink:#0E1A26; --view-soft:#1C2B38;
   --sat:#93B4EE; --sun:#F08F87; --danger:#F08F87; --shadow:0 -8px 30px rgba(0,0,0,.5); color-scheme:dark}
 
 *{box-sizing:border-box}
@@ -37,6 +40,21 @@ html,body{min-height:100%;margin:0}
 body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.5;-webkit-tap-highlight-color:transparent;padding-top:env(safe-area-inset-top,0px)}
 body{--mode:var(--accent);--mode-ink:var(--accent-ink);--mode-soft:var(--accent-soft)}
 body.shop{--mode:var(--shop);--mode-ink:var(--shop-ink);--mode-soft:var(--shop-soft)}
+body.view{--mode:var(--view);--mode-ink:var(--view-ink);--mode-soft:var(--view-soft)}
+body.view .cell .add{visibility:hidden}
+.rv{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface);display:flex;flex-direction:column;gap:8px}
+.rv h3{margin:0;font-size:17px;font-family:var(--f-display);line-height:1.35}
+.rv .kind{font-size:11px;color:var(--muted);font-weight:700}
+.rv .nt{font-size:13px;color:var(--mode);font-weight:700}
+.rv h4{margin:6px 0 0;font-size:14px;border-bottom:1.5px solid var(--ink);padding-bottom:3px}
+.rv p{margin:0;overflow-wrap:anywhere}
+.rv pre{margin:0;white-space:pre-wrap;font:inherit;line-height:1.7}
+.rv ol,.rv ul{margin:0;padding-left:1.4em;display:flex;flex-direction:column;gap:6px;line-height:1.7}
+.rv blockquote{margin:0;padding:6px 10px;border-left:3px solid var(--mode);background:var(--mode-soft);border-radius:4px}
+.rv hr{border:0;border-top:1px dashed var(--line);margin:4px 0;width:100%}
+.rv img{max-width:100%;border-radius:8px}
+.rv .notes{font-size:12px;color:var(--muted)}
+.rv a.openlink{color:var(--mode);font-weight:700;font-size:13px}
 button{font:inherit;color:inherit}
 button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--mode);outline-offset:2px}
 .wrap{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:0 120px}
@@ -214,9 +232,10 @@ body .toast.top{top:calc(16px + env(safe-area-inset-top,0px));bottom:auto}
       <h1>今週なに食べよ</h1>
       <span class="tools"><span class="sync" id="sync">読み込み中…</span><button class="gear" id="gearBtn" aria-label="設定"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></span>
     </div>
-    <div class="seg" role="group" aria-label="モード">
-      <button id="m-recipe" aria-pressed="true">レシピを決める</button>
+    <div class="seg three" role="group" aria-label="モード">
+      <button id="m-recipe" aria-pressed="true">献立</button>
       <button id="m-shop" aria-pressed="false">買い出し</button>
+      <button id="m-view" aria-pressed="false">レシピ</button>
     </div>
     <p class="hint" id="hint">マスをタップすると、その食事にレシピを登録できます。</p>
   </header>
@@ -397,6 +416,7 @@ $("grid").addEventListener("click", e => {
   const c = e.target.closest(".cell"); if (!c) return;
   const d = c.dataset.d, s = c.dataset.s;
   if (mode === "recipe") openRecipeSheet(d, s);
+  else if (mode === "view") openViewSheet(d, s);
   else {
     if (!selA || selB){ selA = {d, s}; selB = null; }
     else { selB = {d, s}; if (ordOf(d,s) < ordOf(selA.d, selA.s)) [selA, selB] = [selB, selA]; }
@@ -408,15 +428,91 @@ $("grid").addEventListener("click", e => {
 function setMode(m){
   mode = m;
   document.body.classList.toggle("shop", m === "shop");
+  document.body.classList.toggle("view", m === "view");
   $("m-recipe").setAttribute("aria-pressed", m === "recipe");
   $("m-shop").setAttribute("aria-pressed", m === "shop");
+  $("m-view").setAttribute("aria-pressed", m === "view");
   $("hint").textContent = m === "recipe" ? "マスをタップすると、その食事にレシピを登録できます。"
-                                         : "買い出しの対象にする最初のマスと最後のマスを順にタップします。";
+                        : m === "view" ? "マスをタップすると、その食事のレシピ（材料と作り方）が見られます。"
+                                       : "買い出しの対象にする最初のマスと最後のマスを順にタップします。";
   $("shopbar").hidden = m !== "shop";
   render();
 }
 $("m-recipe").onclick = () => setMode("recipe");
 $("m-shop").onclick = () => setMode("shop");
+$("m-view").onclick = () => setMode("view");
+
+/* ---------- レシピを見る ---------- */
+const viewCache = new Map(); // 一度読んだレシピは覚えておく
+const KIND = {recipe: "Notion", beetto: "beetto", url: "URLで登録", text: "メモ"};
+function blocksHTML(blocks){
+  let h = "", list = "";
+  const close = () => { if (list){ h += `</${list}>`; list = ""; } };
+  for (const b of blocks){
+    const want = b.t === "li" || b.t === "todo" ? "ul" : b.t === "ol" ? "ol" : "";
+    if (want !== list){ close(); if (want){ h += `<${want}>`; list = want; } }
+    if (b.t === "h") h += `<h4>${esc(b.text)}</h4>`;
+    else if (b.t === "p") h += `<p>${esc(b.text)}</p>`;
+    else if (b.t === "li" || b.t === "ol") h += `<li>${esc(b.text)}</li>`;
+    else if (b.t === "todo") h += `<li>${b.checked ? "☑" : "☐"} ${esc(b.text)}</li>`;
+    else if (b.t === "quote") h += `<blockquote>${esc(b.text)}</blockquote>`;
+    else if (b.t === "hr") h += `<hr>`;
+    else if (b.t === "img" && /^https:\/\//.test(b.url)) h += `<img src="${esc(b.url)}" alt="" loading="lazy">`;
+  }
+  close();
+  return h || `<p class="notes">中身が書かれていません。</p>`;
+}
+function viewBodyHTML(it, data){
+  if (it.type === "recipe"){
+    if (!HH.owner) return `<p class="notes">このレシピは、このワークスペースでは見られません。</p>`;
+    if (!data) return `<p class="notes">読み込み中…</p>`;
+    if (data.error) return `<p class="err">${esc(data.error)}</p>`;
+    return blocksHTML(data.blocks || []) + (data.url ? `<a class="openlink" href="${esc(data.url)}" target="_blank" rel="noopener">Notionで開く</a>` : "");
+  }
+  if (it.type === "beetto"){
+    if (!data) return `<p class="notes">読み込み中…</p>`;
+    if (data.error) return `<p class="err">${esc(data.error)}</p>`;
+    return `<h4>材料（${esc(data.base || "")}）</h4><pre>${esc(data.ingredients || "")}</pre>
+      <h4>作り方</h4><ol>${(data.steps || []).map(x => `<li>${esc(x)}</li>`).join("")}</ol>
+      ${(data.notes || []).length ? `<div class="notes">${data.notes.map(x => `<p>※${esc(x)}</p>`).join("")}</div>` : ""}`;
+  }
+  if (it.type === "url"){
+    return (it.ing ? `<h4>材料</h4><pre>${esc(it.ing)}</pre>` : `<p class="notes">材料は登録されていません。</p>`)
+      + (it.url ? `<a class="openlink" href="${esc(it.url)}" target="_blank" rel="noopener">元のページを開く</a>` : "");
+  }
+  return `<p>${esc(it.name)}</p>`;
+}
+function renderView(){
+  if (!viewKey) return;
+  const items = cells.get(viewKey) || [];
+  $("sheetBody").innerHTML = items.length
+    ? items.map(it => {
+        const data = viewCache.get(it.type + ":" + it.id);
+        return `<div class="rv"><span class="kind">${esc(KIND[it.type] || "")}</span><h3>${esc(it.name)}</h3>${it.note ? `<span class="nt">指示：${esc(it.note)}</span>` : ""}${viewBodyHTML(it, data)}</div>`;
+      }).join("")
+    : `<p class="empty">この食事には、まだ何も登録されていません。「献立」から登録できます。</p>`;
+}
+async function openViewSheet(d, s){
+  showSheet(label(d, s));
+  openKey = null; viewKey = `${d}_${s}`;
+  renderView();
+  const items = cells.get(viewKey) || [];
+  const key = viewKey;
+  await Promise.all(items.map(async it => {
+    const ck = it.type + ":" + it.id;
+    if (!it.id || viewCache.has(ck) || (it.type === "recipe" && !HH.owner)) return;
+    if (it.type !== "recipe" && it.type !== "beetto") return;
+    try {
+      const path = it.type === "recipe" ? `/api/recipes?id=${encodeURIComponent(it.id)}` : `/api/beetto?id=${encodeURIComponent(it.id)}`;
+      const { recipe } = await api(path);
+      viewCache.set(ck, recipe);
+    } catch(e){
+      if (e instanceof AuthError) return showLogin(e.message);
+      viewCache.set(ck, {error: "読み込めませんでした：" + e.message});
+    }
+    if (viewKey === key && !$("sheet").hidden) renderView();
+  }));
+}
 
 function rangeItems(){
   const out = [];
@@ -439,14 +535,15 @@ function updateShopBar(){
 }
 
 /* ---------- 下から出る画面 ---------- */
+let viewKey = null;  // 「レシピ」モードで見ているマス
 let noteEdit = -1; // 「指示」を書いているレシピの番号
 let openKey = null, tab = "search", genre = "すべて", query = "", searchTimer = null, searchSeq = 0, lastResults = [];
 // beetto：自由検索＋フェーズ・朝昼夜で絞り込み
 let btQuery = "", btPhase = 0, btMeal = "", btResults = [], btTimer = null, btSeq = 0;
 const BT_PHASES = [[0,"すべて"],[1,"1"],[2,"2"],[3,"3"],[4,"4・5"]], BT_MEALS = ["","朝","昼","夜"];
 const btPhaseLabel = p => p === 4 ? "Phase4・5" : `Phase${p}`;
-function showSheet(title){ settingsOpen = false; $("sheetTitle").textContent = title; $("scrim").hidden = false; $("sheet").hidden = false; }
-function closeSheet(){ $("scrim").hidden = true; $("sheet").hidden = true; openKey = null; settingsOpen = false; }
+function showSheet(title){ settingsOpen = false; viewKey = null; $("sheetTitle").textContent = title; $("scrim").hidden = false; $("sheet").hidden = false; }
+function closeSheet(){ $("scrim").hidden = true; $("sheet").hidden = true; openKey = null; settingsOpen = false; viewKey = null; }
 $("scrim").onclick = closeSheet; $("closeSheet").onclick = closeSheet;
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("sheet").hidden) closeSheet(); });
 
